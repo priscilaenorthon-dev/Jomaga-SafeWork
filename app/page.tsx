@@ -1,14 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import Image from 'next/image';
-import { 
-  HardHat, 
-  AlertTriangle, 
-  BarChart3, 
-  TrendingUp,
-  XCircle,
-  Stethoscope,
+import React from 'react';
+import {
+  HardHat,
+  AlertTriangle,
+  BarChart3,
   ClipboardCheck,
   Thermometer,
   Droplets,
@@ -16,12 +12,12 @@ import {
   PlusCircle,
   FileText,
   ChevronRight,
-  Loader2
+  TrendingUp
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Header } from '@/components/Header';
-import { toast } from 'sonner';
+import Link from 'next/link';
 
 import { createClient } from '@/lib/supabase-client';
 
@@ -159,10 +155,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleAction = (action: string) => {
-    toast.success(`${action} iniciado com sucesso!`);
-  };
-
   return (
     <>
       <Header title="Visão Geral do Dashboard" />
@@ -226,9 +218,9 @@ export default function Dashboard() {
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Feed de Alertas de Segurança</h3>
-              <button className="text-sm font-bold text-[#1A237E] hover:underline flex items-center gap-1">
+              <Link href="/incidentes" className="text-sm font-bold text-[#1A237E] hover:underline flex items-center gap-1">
                 Ver Tudo <ChevronRight size={14} />
-              </button>
+              </Link>
             </div>
             <div className="space-y-3">
               <AlertItem 
@@ -266,27 +258,27 @@ export default function Dashboard() {
             <div className="bg-[#1A237E] rounded-xl p-6 text-white shadow-lg">
               <h3 className="text-lg font-bold mb-4">Ações Rápidas</h3>
               <div className="grid grid-cols-1 gap-3">
-                <button 
-                  onClick={() => handleAction('Novo Incidente')}
+                <Link
+                  href="/incidentes"
                   className="w-full bg-white text-[#1A237E] font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors"
                 >
                   <PlusCircle size={20} />
                   Novo Incidente
-                </button>
-                <button 
-                  onClick={() => handleAction('Registro de DDS')}
+                </Link>
+                <Link
+                  href="/dds"
                   className="w-full bg-[#FF9800] text-white font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 hover:bg-orange-600 transition-colors"
                 >
                   <FileText size={20} />
                   Registrar DDS
-                </button>
-                <button 
-                  onClick={() => handleAction('Criação de Relatório')}
+                </Link>
+                <Link
+                  href="/relatorios"
                   className="w-full bg-white/10 text-white font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 hover:bg-white/20 transition-colors border border-white/10"
                 >
                   <BarChart3 size={20} />
-                  Criar Relatório
-                </button>
+                  Ver Relatórios
+                </Link>
               </div>
             </div>
 
