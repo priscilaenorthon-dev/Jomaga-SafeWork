@@ -23,20 +23,11 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const { pathname, searchParams } = request.nextUrl;
-
-  // If there's a code at the root path, forward to /auth/callback to exchange it
-  const code = searchParams.get('code');
-  if (code && pathname === '/') {
-    const url = request.nextUrl.clone();
-    url.pathname = '/auth/callback';
-    return NextResponse.redirect(url);
-  }
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { pathname } = request.nextUrl;
   const isPublicRoute = pathname.startsWith('/login') || pathname.startsWith('/auth');
   const isApiRoute = pathname.startsWith('/api');
 
