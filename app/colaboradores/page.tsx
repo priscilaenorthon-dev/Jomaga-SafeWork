@@ -13,11 +13,13 @@ import {
   User,
   Mail,
   Briefcase,
-  IdCard
+  IdCard,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { createClient } from '@/lib/supabase-client';
 
 interface Collaborator {
   id: string;
@@ -36,7 +38,9 @@ const initialCollaborators: Collaborator[] = [
 ];
 
 export default function CollaboratorsPage() {
-  const [collaborators, setCollaborators] = useState<Collaborator[]>(initialCollaborators);
+  const supabase = createClient();
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null);
@@ -50,6 +54,28 @@ export default function CollaboratorsPage() {
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [collaboratorToDelete, setCollaboratorToDelete] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchCollaborators();
+  }, []);
+
+  const fetchCollaborators = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('collaborators')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setCollaborators(data || []);
+    } catch (error: any) {
+      console.error('Error fetching collaborators:', error.message);
+      toast.error('Erro ao carregar colaboradores');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredCollaborators = collaborators.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -84,17 +110,43 @@ export default function CollaboratorsPage() {
     setEditingCollaborator(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingCollaborator) {
-      setCollaborators(prev => prev.map(c => c.id === editingCollaborator.id ? { ...formData, id: c.id } : c));
-      toast.success('Colaborador atualizado com sucesso!');
-    } else {
-      const newCollaborator = { ...formData, id: Math.random().toString(36).substr(2, 9) };
-      setCollaborators(prev => [...prev, newCollaborator]);
-      toast.success('Colaborador cadastrado com sucesso!');
+    try {
+      if (editingCollaborator) {
+        const { error } = await supabase
+          .from('collaborators')
+          .update({
+            name: formData.name,
+            email: formData.email,
+            role: formData.role,
+            registration: formData.registration,
+            status: formData.status
+          })
+          .eq('id', editingCollaborator.id);
+
+        if (error) throw error;
+        toast.success('Colaborador atualizado com sucesso!');
+      } else {
+        const { error } = await supabase
+          .from('collaborators')
+          .insert([{
+            name: formData.name,
+            email: formData.email,
+            role: formData.role,
+            registration: formData.registration,
+            status: formData.status
+          }]);
+
+        if (error) throw error;
+        toast.success('Colaborador cadastrado com sucesso!');
+      }
+      fetchCollaborators();
+      handleCloseModal();
+    } catch (error: any) {
+      console.error('Error saving collaborator:', error.message);
+      toast.error('Erro ao salvar colaborador. Verifique se a matrícula já existe.');
     }
-    handleCloseModal();
   };
 
   const confirmDelete = (id: string) => {
@@ -102,12 +154,24 @@ export default function CollaboratorsPage() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (collaboratorToDelete) {
-      setCollaborators(prev => prev.filter(c => c.id !== collaboratorToDelete));
-      toast.error('Colaborador removido.');
-      setIsDeleteModalOpen(false);
-      setCollaboratorToDelete(null);
+      try {
+        const { error } = await supabase
+          .from('collaborators')
+          .delete()
+          .eq('id', collaboratorToDelete);
+
+        if (error) throw error;
+        
+        toast.error('Colaborador removido.');
+        fetchCollaborators();
+        setIsDeleteModalOpen(false);
+        setCollaboratorToDelete(null);
+      } catch (error: any) {
+        console.error('Error deleting collaborator:', error.message);
+        toast.error('Erro ao excluir colaborador');
+      }
     }
   };
 
@@ -150,57 +214,68 @@ export default function CollaboratorsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                <AnimatePresence mode='popLayout'>
-                  {filteredCollaborators.map((c) => (
-                    <motion.tr 
-                      key={c.id}
-                      layout
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="hover:bg-slate-50 transition-colors group"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
-                            {c.name.charAt(0)}
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2 text-slate-500">
+                        <Loader2 className="animate-spin" size={24} />
+                        <span className="text-sm">Carregando colaboradores...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <AnimatePresence mode='popLayout'>
+                    {filteredCollaborators.map((c) => (
+                      <motion.tr 
+                        key={c.id}
+                        layout
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="hover:bg-slate-50 transition-colors group"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+                              {c.name.charAt(0)}
+                            </div>
+                            <div>
+                              <div className="text-sm font-bold text-slate-800">{c.name}</div>
+                              <div className="text-xs text-slate-500">{c.email}</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="text-sm font-bold text-slate-800">{c.name}</div>
-                            <div className="text-xs text-slate-500">{c.email}</div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600 font-mono">{c.registration}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600">{c.role}</td>
+                        <td className="px-6 py-4">
+                          <span className={cn(
+                            "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
+                            c.status === 'Ativo' ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
+                          )}>
+                            {c.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={() => handleOpenModal(c)}
+                              className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button 
+                              onClick={() => confirmDelete(c.id)}
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600 font-mono">{c.registration}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{c.role}</td>
-                      <td className="px-6 py-4">
-                        <span className={cn(
-                          "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
-                          c.status === 'Ativo' ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
-                        )}>
-                          {c.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button 
-                            onClick={() => handleOpenModal(c)}
-                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button 
-                            onClick={() => confirmDelete(c.id)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-                {filteredCollaborators.length === 0 && (
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                )}
+                {!loading && filteredCollaborators.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                       Nenhum colaborador encontrado.
