@@ -160,7 +160,7 @@ export function Header({ title }: { title: string }) {
   return (
     <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 lg:px-8 shrink-0 z-50">
       <div className="flex items-center gap-4 lg:gap-6">
-        <h2 className="text-lg lg:text-xl font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] lg:max-w-none ml-12 lg:ml-0">
+        <h2 className="text-lg lg:text-xl font-bold text-slate-800 dark:text-slate-100 truncate max-w-[180px] lg:max-w-none">
           {title}
         </h2>
         <div className="relative hidden md:block w-48 lg:w-64">
