@@ -27,6 +27,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { GoogleGenAI } from "@google/genai";
 
+import { createClient } from '@/lib/supabase-client';
+
 // Tipagem para um registro de DDS
 interface DDSRecord {
   id: string;
@@ -39,27 +41,10 @@ interface DDSRecord {
 }
 
 export default function DDSPage() {
+  const supabase = createClient();
   const [activeTab, setActiveTab] = useState<'history' | 'new' | 'ai'>('history');
-  const [records, setRecords] = useState<DDSRecord[]>([
-    {
-      id: '1',
-      date: '2024-03-01',
-      theme: 'Segurança em Altura (NR-35)',
-      content: 'Abordamos os principais riscos de queda, uso correto do cinturão e pontos de ancoragem.',
-      technician: 'Roberto Silva',
-      participants: ['Carlos Rocha', 'Ana Souza', 'Marcos Lima'],
-      duration: '15 min'
-    },
-    {
-      id: '2',
-      date: '2024-02-28',
-      theme: 'Uso de EPIs e EPCs',
-      content: 'Reforço sobre a importância da higienização e guarda correta dos equipamentos.',
-      technician: 'Roberto Silva',
-      participants: ['Julia Silva', 'Roberto Alves', 'Fernanda Costa'],
-      duration: '10 min'
-    }
-  ]);
+  const [records, setRecords] = useState<DDSRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Estados para o formulário de novo registro
   const [newTheme, setNewTheme] = useState('');
@@ -73,6 +58,28 @@ export default function DDSPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState('');
 
+  useEffect(() => {
+    fetchDDSRecords();
+  }, []);
+
+  const fetchDDSRecords = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('dds_records')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+      setRecords(data || []);
+    } catch (error: any) {
+      console.error('Error fetching DDS records:', error.message);
+      toast.error('Erro ao carregar registros de DDS');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const collaborators = [
     "Carlos Rocha", "Ana Souza", "Marcos Lima", "Julia Silva", "Roberto Alves", "Fernanda Costa",
     "Paulo Santos", "Lucia Oliveira", "Ricardo Mendes", "Beatriz Lima"
@@ -84,28 +91,36 @@ export default function DDSPage() {
     );
   };
 
-  const handleSaveDDS = () => {
+  const handleSaveDDS = async () => {
     if (!newTheme || !newContent || selectedParticipants.length === 0) {
       toast.error("Por favor, preencha todos os campos e selecione ao menos um participante.");
       return;
     }
 
-    const newRecord: DDSRecord = {
-      id: Math.random().toString(36).substr(2, 9),
-      date: new Date().toISOString().split('T')[0],
-      theme: newTheme,
-      content: newContent,
-      technician: technicianName,
-      participants: selectedParticipants,
-      duration: '15 min' // Simulação
-    };
+    try {
+      const { error } = await supabase
+        .from('dds_records')
+        .insert([{
+          date: new Date().toISOString().split('T')[0],
+          theme: newTheme,
+          content: newContent,
+          technician: technicianName,
+          participants: selectedParticipants,
+          duration: '15 min'
+        }]);
 
-    setRecords([newRecord, ...records]);
-    toast.success("DDS registrado com sucesso!");
-    setNewTheme('');
-    setNewContent('');
-    setSelectedParticipants([]);
-    setActiveTab('history');
+      if (error) throw error;
+
+      toast.success("DDS registrado com sucesso!");
+      setNewTheme('');
+      setNewContent('');
+      setSelectedParticipants([]);
+      fetchDDSRecords();
+      setActiveTab('history');
+    } catch (error: any) {
+      console.error('Error saving DDS:', error.message);
+      toast.error('Erro ao salvar DDS');
+    }
   };
 
   const generateWithAI = async () => {
@@ -135,9 +150,22 @@ export default function DDSPage() {
     }
   };
 
-  const deleteRecord = (id: string) => {
-    setRecords(records.filter(r => r.id !== id));
-    toast.success("Registro removido.");
+  const deleteRecord = async (id: string) => {
+    if (confirm('Deseja excluir este registro?')) {
+      try {
+        const { error } = await supabase
+          .from('dds_records')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+        toast.success("Registro removido.");
+        fetchDDSRecords();
+      } catch (error: any) {
+        console.error('Error deleting DDS:', error.message);
+        toast.error('Erro ao excluir registro');
+      }
+    }
   };
 
   return (
@@ -201,7 +229,12 @@ export default function DDSPage() {
                   </div>
                 </div>
 
-                {records.length === 0 ? (
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                    <Loader2 className="animate-spin mb-2" size={24} />
+                    <span>Carregando registros...</span>
+                  </div>
+                ) : records.length === 0 ? (
                   <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-300">
                     <History size={48} className="mx-auto text-slate-300 mb-4" />
                     <p className="text-slate-500 font-medium">Nenhum registro encontrado.</p>
@@ -235,12 +268,12 @@ export default function DDSPage() {
                                 PARTICIPANTES
                               </div>
                               <div className="flex -space-x-2 justify-end">
-                                {record.participants.slice(0, 3).map((p, i) => (
+                                {record.participants && record.participants.slice(0, 3).map((p, i) => (
                                   <div key={i} className="w-7 h-7 rounded-full bg-[#1A237E] text-white flex items-center justify-center text-[10px] font-bold border-2 border-white">
                                     {p.charAt(0)}
                                   </div>
                                 ))}
-                                {record.participants.length > 3 && (
+                                {record.participants && record.participants.length > 3 && (
                                   <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold border-2 border-white">
                                     +{record.participants.length - 3}
                                   </div>

@@ -15,26 +15,30 @@ import {
   UserCheck,
   PlusCircle,
   FileText,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Header } from '@/components/Header';
 import { toast } from 'sonner';
 
-const StatCard = ({ title, value, change, icon: Icon, iconColor, bgColor, trend }: { 
+import { createClient } from '@/lib/supabase-client';
+
+const StatCard = ({ title, value, change, icon: Icon, iconColor, bgColor, trend, loading }: { 
   title: string, 
-  value: string, 
+  value: string | number, 
   change: string, 
   icon: any, 
   iconColor: string, 
   bgColor: string,
-  trend?: 'up' | 'down' | 'warning' | 'danger' | 'success'
+  trend?: 'up' | 'down' | 'warning' | 'danger' | 'success',
+  loading?: boolean
 }) => (
   <motion.div 
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
-    className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between"
+    className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between min-h-[140px]"
   >
     <div className="flex justify-between items-start">
       <p className="text-sm font-semibold text-slate-500">{title}</p>
@@ -43,7 +47,11 @@ const StatCard = ({ title, value, change, icon: Icon, iconColor, bgColor, trend 
       </div>
     </div>
     <div className="mt-4">
-      <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">{value}</h3>
+      {loading ? (
+        <div className="h-8 w-16 bg-slate-100 animate-pulse rounded" />
+      ) : (
+        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">{value}</h3>
+      )}
       <p className={cn(
         "text-xs font-bold mt-1 flex items-center gap-1",
         trend === 'up' && "text-green-600",
@@ -93,6 +101,51 @@ const AlertItem = ({ title, time, description, type, status, icon: Icon, iconBg 
 );
 
 export default function Dashboard() {
+  const supabase = createClient();
+  const [loading, setLoading] = React.useState(true);
+  const [stats, setStats] = React.useState({
+    epis: 0,
+    expiringEpis: 0,
+    trainings: 0,
+    incidents: 0,
+    ddsConformity: 98
+  });
+
+  React.useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch counts in parallel
+      const [
+        { count: episCount },
+        { count: expiringCount },
+        { count: trainingsCount },
+        { count: incidentsCount }
+      ] = await Promise.all([
+        supabase.from('epis').select('*', { count: 'exact', head: true }),
+        supabase.from('epis').select('*', { count: 'exact', head: true }).eq('status', 'Vencendo'),
+        supabase.from('trainings').select('*', { count: 'exact', head: true }).neq('status', 'Concluído'),
+        supabase.from('incidents').select('*', { count: 'exact', head: true })
+      ]);
+
+      setStats({
+        epis: episCount || 0,
+        expiringEpis: expiringCount || 0,
+        trainings: trainingsCount || 0,
+        incidents: incidentsCount || 0,
+        ddsConformity: 98 // Hardcoded for now or fetch from DDS records
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAction = (action: string) => {
     toast.success(`${action} iniciado com sucesso!`);
   };
@@ -105,48 +158,53 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard 
             title="EPIs Ativos" 
-            value="4" 
+            value={stats.epis} 
             change="Em uso" 
             icon={HardHat} 
             iconColor="text-[#1A237E]" 
             bgColor="bg-[#1A237E]/10" 
             trend="success" 
+            loading={loading}
           />
           <StatCard 
             title="Próximos ao Vencimento" 
-            value="1" 
+            value={stats.expiringEpis} 
             change="Atenção" 
             icon={AlertTriangle} 
             iconColor="text-[#FF9800]" 
             bgColor="bg-[#FF9800]/10" 
             trend="warning" 
+            loading={loading}
           />
           <StatCard 
             title="Treinamentos Ativos" 
-            value="3" 
+            value={stats.trainings} 
             change="Agendados" 
             icon={ClipboardCheck} 
             iconColor="text-blue-500" 
             bgColor="bg-blue-50" 
             trend="up" 
+            loading={loading}
           />
           <StatCard 
             title="Incidentes Reportados" 
-            value="3" 
+            value={stats.incidents} 
             change="Últimos 30 dias" 
             icon={AlertTriangle} 
             iconColor="text-red-500" 
             bgColor="bg-red-50" 
             trend="danger" 
+            loading={loading}
           />
           <StatCard 
             title="Conformidade DDS" 
-            value="98%" 
+            value={`${stats.ddsConformity}%`} 
             change="Na Meta" 
             icon={UserCheck} 
             iconColor="text-green-500" 
             bgColor="bg-green-50" 
             trend="success" 
+            loading={loading}
           />
         </div>
 

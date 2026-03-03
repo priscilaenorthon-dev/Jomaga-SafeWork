@@ -15,11 +15,14 @@ import {
   Check,
   Calendar,
   User,
-  BookOpen
+  BookOpen,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+import { createClient } from '@/lib/supabase-client';
 
 interface Training {
   id: string;
@@ -31,15 +34,10 @@ interface Training {
   participants: number;
 }
 
-const initialTrainings: Training[] = [
-  { id: '1', title: "NR-35 Trabalho em Altura", instructor: "Eng. Ricardo Santos", date: "2026-03-10", duration: "8h", status: "Agendado", participants: 12 },
-  { id: '2', title: "NR-10 Segurança em Eletricidade", instructor: "Téc. Marcos Lima", date: "2026-02-25", duration: "16h", status: "Concluído", participants: 8 },
-  { id: '3', title: "Primeiros Socorros Básico", instructor: "Enf. Julia Costa", date: "2026-03-03", duration: "4h", status: "Em Andamento", participants: 15 },
-  { id: '4', title: "Prevenção de Incêndios", instructor: "Bombeiro Civil Silva", date: "2026-03-15", duration: "4h", status: "Agendado", participants: 20 },
-];
-
 export default function TreinamentosPage() {
-  const [trainings, setTrainings] = useState<Training[]>(initialTrainings);
+  const supabase = createClient();
+  const [trainings, setTrainings] = useState<Training[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTraining, setEditingTraining] = useState<Training | null>(null);
@@ -51,6 +49,28 @@ export default function TreinamentosPage() {
     status: 'Agendado',
     participants: 0
   });
+
+  useEffect(() => {
+    fetchTrainings();
+  }, []);
+
+  const fetchTrainings = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('trainings')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+      setTrainings(data || []);
+    } catch (error: any) {
+      console.error('Error fetching trainings:', error.message);
+      toast.error('Erro ao carregar treinamentos');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredTrainings = trainings.filter(t => 
     t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -87,22 +107,63 @@ export default function TreinamentosPage() {
     setEditingTraining(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingTraining) {
-      setTrainings(prev => prev.map(item => item.id === editingTraining.id ? { ...formData, id: item.id } : item));
-      toast.success('Treinamento atualizado com sucesso!');
-    } else {
-      const newTraining = { ...formData, id: Math.random().toString(36).substr(2, 9) };
-      setTrainings(prev => [...prev, newTraining]);
-      toast.success('Treinamento agendado com sucesso!');
+    try {
+      if (editingTraining) {
+        const { error } = await supabase
+          .from('trainings')
+          .update({
+            title: formData.title,
+            instructor: formData.instructor,
+            date: formData.date,
+            duration: formData.duration,
+            status: formData.status,
+            participants: formData.participants
+          })
+          .eq('id', editingTraining.id);
+
+        if (error) throw error;
+        toast.success('Treinamento atualizado com sucesso!');
+      } else {
+        const { error } = await supabase
+          .from('trainings')
+          .insert([{
+            title: formData.title,
+            instructor: formData.instructor,
+            date: formData.date,
+            duration: formData.duration,
+            status: formData.status,
+            participants: formData.participants
+          }]);
+
+        if (error) throw error;
+        toast.success('Treinamento agendado com sucesso!');
+      }
+      fetchTrainings();
+      handleCloseModal();
+    } catch (error: any) {
+      console.error('Error saving training:', error.message);
+      toast.error('Erro ao salvar treinamento');
     }
-    handleCloseModal();
   };
 
-  const handleDelete = (id: string) => {
-    setTrainings(prev => prev.filter(item => item.id !== id));
-    toast.error('Treinamento removido.');
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este treinamento?')) {
+      try {
+        const { error } = await supabase
+          .from('trainings')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+        toast.error('Treinamento removido.');
+        fetchTrainings();
+      } catch (error: any) {
+        console.error('Error deleting training:', error.message);
+        toast.error('Erro ao excluir treinamento');
+      }
+    }
   };
 
   return (
@@ -167,55 +228,66 @@ export default function TreinamentosPage() {
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                <AnimatePresence mode='popLayout'>
-                  {filteredTrainings.map((t) => (
-                    <motion.tr 
-                      key={t.id}
-                      layout
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="hover:bg-slate-50 transition-colors group"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-bold text-slate-800">{t.title}</div>
-                        <div className="text-xs text-slate-500">{t.duration} de carga horária</div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{t.instructor}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
-                        {new Date(t.date).toLocaleDateString('pt-BR')}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={cn(
-                          "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
-                          t.status === 'Concluído' ? "bg-green-100 text-green-700" : 
-                          t.status === 'Em Andamento' ? "bg-blue-100 text-blue-700" : 
-                          "bg-orange-100 text-orange-700"
-                        )}>
-                          {t.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button 
-                            onClick={() => handleOpenModal(t)}
-                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(t.id)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-                {filteredTrainings.length === 0 && (
+                <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2 text-slate-500">
+                        <Loader2 className="animate-spin" size={24} />
+                        <span className="text-sm">Carregando treinamentos...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <AnimatePresence mode='popLayout'>
+                    {filteredTrainings.map((t) => (
+                      <motion.tr 
+                        key={t.id}
+                        layout
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="hover:bg-slate-50 transition-colors group"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-bold text-slate-800">{t.title}</div>
+                          <div className="text-xs text-slate-500">{t.duration} de carga horária</div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">{t.instructor}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {new Date(t.date).toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={cn(
+                            "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
+                            t.status === 'Concluído' ? "bg-green-100 text-green-700" : 
+                            t.status === 'Em Andamento' ? "bg-blue-100 text-blue-700" : 
+                            "bg-orange-100 text-orange-700"
+                          )}>
+                            {t.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={() => handleOpenModal(t)}
+                              className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(t.id)}
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                )}
+                {!loading && filteredTrainings.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                       Nenhum treinamento encontrado.

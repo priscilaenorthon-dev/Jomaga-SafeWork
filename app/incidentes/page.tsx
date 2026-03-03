@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react';
 import { Header } from '@/components/Header';
-import { AlertTriangle, PlusCircle, Filter, X, Check, Calendar, MapPin, Info, FileText } from 'lucide-react';
+import { AlertTriangle, PlusCircle, Filter, X, Check, Calendar, MapPin, Info, FileText, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+import { createClient } from '@/lib/supabase-client';
 
 interface Incidente {
   id: string;
@@ -18,13 +20,11 @@ interface Incidente {
 }
 
 export default function IncidentesPage() {
+  const supabase = createClient();
+  const [incidentes, setIncidentes] = useState<Incidente[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingIncidente, setEditingIncidente] = useState<Incidente | null>(null);
-  const [incidentes, setIncidentes] = useState<Incidente[]>([
-    { id: "INC-001", title: "Queda de nível", area: "Produção A", severity: "Média", date: "02/03/2026", status: "Aberto", description: "Colaborador escorregou em poça de óleo." },
-    { id: "INC-002", title: "Vazamento de óleo", area: "Manutenção", severity: "Baixa", date: "01/03/2026", status: "Em análise", description: "Pequeno vazamento detectado na máquina 4." },
-    { id: "INC-003", title: "Curto-circuito painel", area: "Elétrica", severity: "Alta", date: "28/02/2026", status: "Fechado", description: "Painel elétrico principal apresentou faíscas." },
-  ]);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -33,6 +33,28 @@ export default function IncidentesPage() {
     description: '',
     status: 'Aberto' as 'Aberto' | 'Em análise' | 'Fechado'
   });
+
+  useEffect(() => {
+    fetchIncidentes();
+  }, []);
+
+  const fetchIncidentes = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('incidents')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setIncidentes(data || []);
+    } catch (error: any) {
+      console.error('Error fetching incidents:', error.message);
+      toast.error('Erro ao carregar incidentes');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleOpenModal = (incidente?: Incidente) => {
     if (incidente) {
@@ -51,39 +73,64 @@ export default function IncidentesPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este incidente?')) {
-      setIncidentes(incidentes.filter(inc => inc.id !== id));
-      toast.success('Incidente excluído com sucesso!');
+      try {
+        const { error } = await supabase
+          .from('incidents')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+        toast.success('Incidente excluído com sucesso!');
+        fetchIncidentes();
+      } catch (error: any) {
+        console.error('Error deleting incident:', error.message);
+        toast.error('Erro ao excluir incidente');
+      }
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingIncidente) {
-      setIncidentes(incidentes.map(inc => 
-        inc.id === editingIncidente.id 
-          ? { ...inc, ...formData } 
-          : inc
-      ));
-      toast.success('Incidente atualizado com sucesso!');
-    } else {
-      const newIncidente: Incidente = {
-        id: `INC-00${incidentes.length + 1}`,
-        title: formData.title,
-        area: formData.area,
-        severity: formData.severity,
-        date: new Date().toLocaleDateString('pt-BR'),
-        status: 'Aberto',
-        description: formData.description
-      };
-      setIncidentes([newIncidente, ...incidentes]);
-      toast.success('Incidente reportado com sucesso!');
-    }
+    try {
+      if (editingIncidente) {
+        const { error } = await supabase
+          .from('incidents')
+          .update({
+            title: formData.title,
+            area: formData.area,
+            severity: formData.severity,
+            description: formData.description,
+            status: formData.status
+          })
+          .eq('id', editingIncidente.id);
 
-    setIsModalOpen(false);
-    setFormData({ title: '', area: '', severity: 'Baixa', description: '', status: 'Aberto' });
+        if (error) throw error;
+        toast.success('Incidente atualizado com sucesso!');
+      } else {
+        const { error } = await supabase
+          .from('incidents')
+          .insert([{
+            title: formData.title,
+            area: formData.area,
+            severity: formData.severity,
+            description: formData.description,
+            status: 'Aberto',
+            date: new Date().toLocaleDateString('pt-BR')
+          }]);
+
+        if (error) throw error;
+        toast.success('Incidente reportado com sucesso!');
+      }
+      fetchIncidentes();
+      setIsModalOpen(false);
+      setFormData({ title: '', area: '', severity: 'Baixa', description: '', status: 'Aberto' });
+    } catch (error: any) {
+      console.error('Error saving incident:', error.message);
+      toast.error('Erro ao salvar incidente');
+    }
   };
 
   return (
@@ -104,61 +151,72 @@ export default function IncidentesPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-4">
-          {incidentes.map((inc, i) => (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              key={inc.id} 
-              className="bg-white p-4 rounded-xl border border-slate-200 flex items-center justify-between hover:border-red-200 transition-colors shadow-sm"
-            >
-              <div className="flex items-center gap-4 flex-1">
-                <div className={cn(
-                  "p-3 rounded-xl",
-                  inc.severity === 'Alta' ? 'bg-red-100 text-red-600' : 
-                  inc.severity === 'Média' ? 'bg-orange-100 text-orange-600' : 
-                  'bg-yellow-100 text-yellow-600'
-                )}>
-                  <AlertTriangle size={20} />
-                </div>
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">{inc.id} • {inc.area}</div>
-                  <h4 className="font-bold text-slate-800">{inc.title}</h4>
-                  {inc.description && <p className="text-xs text-slate-500 mt-1 line-clamp-1">{inc.description}</p>}
-                </div>
-              </div>
-              <div className="flex items-center gap-6">
-                <div className="text-right flex flex-col items-end gap-2">
-                  <div className="text-xs font-medium text-slate-500">{inc.date}</div>
-                  <span className={cn(
-                    "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
-                    inc.status === 'Aberto' ? 'bg-red-50 text-red-600' : 
-                    inc.status === 'Em análise' ? 'bg-blue-50 text-blue-600' : 
-                    'bg-green-50 text-green-600'
+          <div className="grid grid-cols-1 gap-4">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+              <Loader2 className="animate-spin mb-2" size={24} />
+              <span>Carregando incidentes...</span>
+            </div>
+          ) : incidentes.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300 text-slate-500">
+              Nenhum incidente reportado.
+            </div>
+          ) : (
+            incidentes.map((inc, i) => (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                key={inc.id} 
+                className="bg-white p-4 rounded-xl border border-slate-200 flex items-center justify-between hover:border-red-200 transition-colors shadow-sm"
+              >
+                <div className="flex items-center gap-4 flex-1">
+                  <div className={cn(
+                    "p-3 rounded-xl",
+                    inc.severity === 'Alta' ? 'bg-red-100 text-red-600' : 
+                    inc.severity === 'Média' ? 'bg-orange-100 text-orange-600' : 
+                    'bg-yellow-100 text-yellow-600'
                   )}>
-                    {inc.status}
-                  </span>
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">{inc.id.slice(0, 8)} • {inc.area}</div>
+                    <h4 className="font-bold text-slate-800">{inc.title}</h4>
+                    {inc.description && <p className="text-xs text-slate-500 mt-1 line-clamp-1">{inc.description}</p>}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 border-l border-slate-100 pl-4">
-                  <button 
-                    onClick={() => handleOpenModal(inc)}
-                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                    title="Editar"
-                  >
-                    <FileText size={18} className="text-slate-400" />
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(inc.id)}
-                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                    title="Excluir"
-                  >
-                    <X size={18} />
-                  </button>
+                <div className="flex items-center gap-6">
+                  <div className="text-right flex flex-col items-end gap-2">
+                    <div className="text-xs font-medium text-slate-500">{inc.date}</div>
+                    <span className={cn(
+                      "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                      inc.status === 'Aberto' ? 'bg-red-50 text-red-600' : 
+                      inc.status === 'Em análise' ? 'bg-blue-50 text-blue-600' : 
+                      'bg-green-50 text-green-600'
+                    )}>
+                      {inc.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 border-l border-slate-100 pl-4">
+                    <button 
+                      onClick={() => handleOpenModal(inc)}
+                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                      title="Editar"
+                    >
+                      <FileText size={18} className="text-slate-400" />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(inc.id)}
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      title="Excluir"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            ))
+          )}
         </div>
       </div>
 

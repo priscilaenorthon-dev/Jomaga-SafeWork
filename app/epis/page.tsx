@@ -15,11 +15,14 @@ import {
   Check,
   Tag,
   User,
-  Calendar
+  Calendar,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+import { createClient } from '@/lib/supabase-client';
 
 interface EPI {
   id: string;
@@ -29,15 +32,10 @@ interface EPI {
   date: string;
 }
 
-const initialEPIs: EPI[] = [
-  { id: '1', item: "Capacete de Segurança", user: "Carlos Rocha", status: "Ativo", date: "2026-12-12" },
-  { id: '2', item: "Luvas Nitrílicas", user: "Ana Souza", status: "Vencendo", date: "2026-03-15" },
-  { id: '3', item: "Protetor Auricular", user: "Marcos Lima", status: "Ativo", date: "2027-08-20" },
-  { id: '4', item: "Óculos de Proteção", user: "Julia Silva", status: "Expirado", date: "2026-03-01" },
-];
-
 export default function EPIsPage() {
-  const [epis, setEpis] = useState<EPI[]>(initialEPIs);
+  const supabase = createClient();
+  const [epis, setEpis] = useState<EPI[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEPI, setEditingEPI] = useState<EPI | null>(null);
@@ -47,6 +45,28 @@ export default function EPIsPage() {
     status: 'Ativo',
     date: ''
   });
+
+  React.useEffect(() => {
+    fetchEPIs();
+  }, []);
+
+  const fetchEPIs = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('epis')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+      setEpis(data || []);
+    } catch (error: any) {
+      console.error('Error fetching EPIs:', error.message);
+      toast.error('Erro ao carregar EPIs');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredEPIs = epis.filter(e => 
     e.item.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -79,22 +99,59 @@ export default function EPIsPage() {
     setEditingEPI(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingEPI) {
-      setEpis(prev => prev.map(item => item.id === editingEPI.id ? { ...formData, id: item.id } : item));
-      toast.success('EPI atualizado com sucesso!');
-    } else {
-      const newEPI = { ...formData, id: Math.random().toString(36).substr(2, 9) };
-      setEpis(prev => [...prev, newEPI]);
-      toast.success('EPI registrado com sucesso!');
+    try {
+      if (editingEPI) {
+        const { error } = await supabase
+          .from('epis')
+          .update({
+            item: formData.item,
+            user: formData.user,
+            status: formData.status,
+            date: formData.date
+          })
+          .eq('id', editingEPI.id);
+
+        if (error) throw error;
+        toast.success('EPI atualizado com sucesso!');
+      } else {
+        const { error } = await supabase
+          .from('epis')
+          .insert([{
+            item: formData.item,
+            user: formData.user,
+            status: formData.status,
+            date: formData.date
+          }]);
+
+        if (error) throw error;
+        toast.success('EPI registrado com sucesso!');
+      }
+      fetchEPIs();
+      handleCloseModal();
+    } catch (error: any) {
+      console.error('Error saving EPI:', error.message);
+      toast.error('Erro ao salvar EPI');
     }
-    handleCloseModal();
   };
 
-  const handleDelete = (id: string) => {
-    setEpis(prev => prev.filter(item => item.id !== id));
-    toast.error('EPI removido do sistema.');
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este registro?')) {
+      try {
+        const { error } = await supabase
+          .from('epis')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+        toast.error('EPI removido do sistema.');
+        fetchEPIs();
+      } catch (error: any) {
+        console.error('Error deleting EPI:', error.message);
+        toast.error('Erro ao excluir EPI');
+      }
+    }
   };
 
   return (
@@ -159,52 +216,63 @@ export default function EPIsPage() {
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                <AnimatePresence mode='popLayout'>
-                  {filteredEPIs.map((e) => (
-                    <motion.tr 
-                      key={e.id}
-                      layout
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="hover:bg-slate-50 transition-colors group"
-                    >
-                      <td className="px-6 py-4 text-sm font-medium text-slate-800">{e.item}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{e.user}</td>
-                      <td className="px-6 py-4">
-                        <span className={cn(
-                          "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
-                          e.status === 'Ativo' ? "bg-green-100 text-green-700" : 
-                          e.status === 'Vencendo' ? "bg-orange-100 text-orange-700" : 
-                          "bg-red-100 text-red-700"
-                        )}>
-                          {e.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
-                        {new Date(e.date).toLocaleDateString('pt-BR')}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button 
-                            onClick={() => handleOpenModal(e)}
-                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(e.id)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-                {filteredEPIs.length === 0 && (
+                  <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2 text-slate-500">
+                        <Loader2 className="animate-spin" size={24} />
+                        <span className="text-sm">Carregando EPIs...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <AnimatePresence mode='popLayout'>
+                    {filteredEPIs.map((e) => (
+                      <motion.tr 
+                        key={e.id}
+                        layout
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="hover:bg-slate-50 transition-colors group"
+                      >
+                        <td className="px-6 py-4 text-sm font-medium text-slate-800">{e.item}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600">{e.user}</td>
+                        <td className="px-6 py-4">
+                          <span className={cn(
+                            "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
+                            e.status === 'Ativo' ? "bg-green-100 text-green-700" : 
+                            e.status === 'Vencendo' ? "bg-orange-100 text-orange-700" : 
+                            "bg-red-100 text-red-700"
+                          )}>
+                            {e.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {new Date(e.date).toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={() => handleOpenModal(e)}
+                              className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(e.id)}
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                )}
+                {!loading && filteredEPIs.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                       Nenhum registro de EPI encontrado.
