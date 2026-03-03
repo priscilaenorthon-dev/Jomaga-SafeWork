@@ -163,8 +163,8 @@ export default function CollaboratorsPage() {
           .eq('id', collaboratorToDelete);
 
         if (error) throw error;
-        
-        toast.error('Colaborador removido.');
+
+        toast.success('Colaborador removido.');
         fetchCollaborators();
         setIsDeleteModalOpen(false);
         setCollaboratorToDelete(null);

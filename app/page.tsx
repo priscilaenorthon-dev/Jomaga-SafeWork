@@ -1,14 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import Image from 'next/image';
-import { 
-  HardHat, 
-  AlertTriangle, 
-  BarChart3, 
-  TrendingUp,
-  XCircle,
-  Stethoscope,
+import React from 'react';
+import {
+  HardHat,
+  AlertTriangle,
+  BarChart3,
   ClipboardCheck,
   Thermometer,
   Droplets,
@@ -16,12 +12,12 @@ import {
   PlusCircle,
   FileText,
   ChevronRight,
-  Loader2
+  TrendingUp
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Header } from '@/components/Header';
-import { toast } from 'sonner';
+import Link from 'next/link';
 
 import { createClient } from '@/lib/supabase-client';
 
@@ -120,34 +116,43 @@ export default function Dashboard() {
       setLoading(true);
       
       // Fetch counts in parallel
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(today.getDate() - 30);
+      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+
       const [
         { count: episCount },
         { count: expiringCount },
         { count: trainingsCount },
-        { count: incidentsCount }
+        { count: incidentsCount },
+        { count: ddsTotal },
+        { count: ddsWithParticipants }
       ] = await Promise.all([
         supabase.from('epis').select('*', { count: 'exact', head: true }),
         supabase.from('epis').select('*', { count: 'exact', head: true }).eq('status', 'Vencendo'),
         supabase.from('trainings').select('*', { count: 'exact', head: true }).neq('status', 'Concluído'),
-        supabase.from('incidents').select('*', { count: 'exact', head: true })
+        supabase.from('incidents').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo.toISOString()),
+        supabase.from('dds_records').select('*', { count: 'exact', head: true }).gte('date', thirtyDaysAgoStr),
+        supabase.from('dds_records').select('*', { count: 'exact', head: true }).gte('date', thirtyDaysAgoStr).not('participants', 'eq', '{}')
       ]);
+
+      const conformity = ddsTotal && ddsTotal > 0
+        ? Math.round(((ddsWithParticipants || 0) / ddsTotal) * 100)
+        : 0;
 
       setStats({
         epis: episCount || 0,
         expiringEpis: expiringCount || 0,
         trainings: trainingsCount || 0,
         incidents: incidentsCount || 0,
-        ddsConformity: 98 // Hardcoded for now or fetch from DDS records
+        ddsConformity: conformity
       });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleAction = (action: string) => {
-    toast.success(`${action} iniciado com sucesso!`);
   };
 
   return (
@@ -196,14 +201,14 @@ export default function Dashboard() {
             trend="danger" 
             loading={loading}
           />
-          <StatCard 
-            title="Conformidade DDS" 
-            value={`${stats.ddsConformity}%`} 
-            change="Na Meta" 
-            icon={UserCheck} 
-            iconColor="text-green-500" 
-            bgColor="bg-green-50" 
-            trend="success" 
+          <StatCard
+            title="Conformidade DDS"
+            value={stats.ddsConformity > 0 ? `${stats.ddsConformity}%` : '—'}
+            change={stats.ddsConformity >= 80 ? 'Na Meta' : stats.ddsConformity > 0 ? 'Abaixo da Meta' : 'Sem dados'}
+            icon={UserCheck}
+            iconColor="text-green-500"
+            bgColor="bg-green-50"
+            trend={stats.ddsConformity >= 80 ? 'success' : 'warning'}
             loading={loading}
           />
         </div>
@@ -213,9 +218,9 @@ export default function Dashboard() {
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Feed de Alertas de Segurança</h3>
-              <button className="text-sm font-bold text-[#1A237E] hover:underline flex items-center gap-1">
+              <Link href="/incidentes" className="text-sm font-bold text-[#1A237E] hover:underline flex items-center gap-1">
                 Ver Tudo <ChevronRight size={14} />
-              </button>
+              </Link>
             </div>
             <div className="space-y-3">
               <AlertItem 
@@ -253,27 +258,27 @@ export default function Dashboard() {
             <div className="bg-[#1A237E] rounded-xl p-6 text-white shadow-lg">
               <h3 className="text-lg font-bold mb-4">Ações Rápidas</h3>
               <div className="grid grid-cols-1 gap-3">
-                <button 
-                  onClick={() => handleAction('Novo Incidente')}
+                <Link
+                  href="/incidentes"
                   className="w-full bg-white text-[#1A237E] font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors"
                 >
                   <PlusCircle size={20} />
                   Novo Incidente
-                </button>
-                <button 
-                  onClick={() => handleAction('Registro de DDS')}
+                </Link>
+                <Link
+                  href="/dds"
                   className="w-full bg-[#FF9800] text-white font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 hover:bg-orange-600 transition-colors"
                 >
                   <FileText size={20} />
                   Registrar DDS
-                </button>
-                <button 
-                  onClick={() => handleAction('Criação de Relatório')}
+                </Link>
+                <Link
+                  href="/relatorios"
                   className="w-full bg-white/10 text-white font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 hover:bg-white/20 transition-colors border border-white/10"
                 >
                   <BarChart3 size={20} />
-                  Criar Relatório
-                </button>
+                  Ver Relatórios
+                </Link>
               </div>
             </div>
 

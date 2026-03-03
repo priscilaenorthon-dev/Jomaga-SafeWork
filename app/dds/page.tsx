@@ -2,15 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
-import { 
-  CheckSquare, 
-  Calendar, 
-  Users, 
-  FileCheck, 
-  Play, 
-  X, 
-  Check, 
-  UserCheck, 
+import {
+  Users,
+  X,
+  Check,
+  UserCheck,
   ClipboardList,
   Plus,
   Search,
@@ -25,11 +21,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { GoogleGenAI } from "@google/genai";
-
 import { createClient } from '@/lib/supabase-client';
 
-// Tipagem para um registro de DDS
 interface DDSRecord {
   id: string;
   date: string;
@@ -40,27 +33,47 @@ interface DDSRecord {
   duration: string;
 }
 
+interface Collaborator {
+  id: string;
+  name: string;
+}
+
 export default function DDSPage() {
   const supabase = createClient();
   const [activeTab, setActiveTab] = useState<'history' | 'new' | 'ai'>('history');
   const [records, setRecords] = useState<DDSRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [collaborators, setCollaborators] = useState<string[]>([]);
 
-  // Estados para o formulário de novo registro
   const [newTheme, setNewTheme] = useState('');
   const [newContent, setNewContent] = useState('');
-  const [technicianName, setTechnicianName] = useState('Roberto Silva');
+  const [technicianName, setTechnicianName] = useState('');
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
-  const [isRecordingModalOpen, setIsRecordingModalOpen] = useState(false);
 
-  // Estados para a IA
+  const [editingRecord, setEditingRecord] = useState<DDSRecord | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ theme: '', content: '', technician: '' });
+
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState('');
 
   useEffect(() => {
     fetchDDSRecords();
+    fetchCollaborators();
+    loadUserProfile();
   }, []);
+
+  const loadUserProfile = () => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('jomaga_user_profile');
+      if (saved) {
+        const profile = JSON.parse(saved);
+        setTechnicianName(profile.name || '');
+      }
+    }
+  };
 
   const fetchDDSRecords = async () => {
     try {
@@ -80,20 +93,37 @@ export default function DDSPage() {
     }
   };
 
-  const collaborators = [
-    "Carlos Rocha", "Ana Souza", "Marcos Lima", "Julia Silva", "Roberto Alves", "Fernanda Costa",
-    "Paulo Santos", "Lucia Oliveira", "Ricardo Mendes", "Beatriz Lima"
-  ];
+  const fetchCollaborators = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('collaborators')
+        .select('id, name')
+        .eq('status', 'Ativo')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setCollaborators((data || []).map((c: Collaborator) => c.name));
+    } catch (error: any) {
+      console.error('Error fetching collaborators:', error.message);
+      // Fallback to empty array — no hardcoded names
+    }
+  };
+
+  const filteredRecords = records.filter(r =>
+    r.theme.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.technician.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.date.includes(searchTerm)
+  );
 
   const toggleParticipant = (name: string) => {
-    setSelectedParticipants(prev => 
+    setSelectedParticipants(prev =>
       prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
     );
   };
 
   const handleSaveDDS = async () => {
-    if (!newTheme || !newContent || selectedParticipants.length === 0) {
-      toast.error("Por favor, preencha todos os campos e selecione ao menos um participante.");
+    if (!newTheme.trim() || !newContent.trim() || selectedParticipants.length === 0) {
+      toast.error('Preencha todos os campos e selecione ao menos um participante.');
       return;
     }
 
@@ -102,16 +132,16 @@ export default function DDSPage() {
         .from('dds_records')
         .insert([{
           date: new Date().toISOString().split('T')[0],
-          theme: newTheme,
-          content: newContent,
-          technician: technicianName,
+          theme: newTheme.trim(),
+          content: newContent.trim(),
+          technician: technicianName.trim() || 'Técnico',
           participants: selectedParticipants,
           duration: '15 min'
         }]);
 
       if (error) throw error;
 
-      toast.success("DDS registrado com sucesso!");
+      toast.success('DDS registrado com sucesso!');
       setNewTheme('');
       setNewContent('');
       setSelectedParticipants([]);
@@ -123,48 +153,92 @@ export default function DDSPage() {
     }
   };
 
+  const handleOpenEdit = (record: DDSRecord) => {
+    setEditingRecord(record);
+    setEditForm({
+      theme: record.theme,
+      content: record.content,
+      technician: record.technician,
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingRecord) return;
+    if (!editForm.theme.trim() || !editForm.content.trim()) {
+      toast.error('Preencha o tema e o conteúdo.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('dds_records')
+        .update({
+          theme: editForm.theme.trim(),
+          content: editForm.content.trim(),
+          technician: editForm.technician.trim(),
+        })
+        .eq('id', editingRecord.id);
+
+      if (error) throw error;
+
+      toast.success('Registro atualizado com sucesso!');
+      setIsEditModalOpen(false);
+      setEditingRecord(null);
+      fetchDDSRecords();
+    } catch (error: any) {
+      console.error('Error updating DDS:', error.message);
+      toast.error('Erro ao atualizar registro');
+    }
+  };
+
+  const deleteRecord = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('dds_records')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Registro removido.');
+      fetchDDSRecords();
+    } catch (error: any) {
+      console.error('Error deleting DDS:', error.message);
+      toast.error('Erro ao excluir registro');
+    }
+  };
+
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
   const generateWithAI = async () => {
-    if (!aiPrompt) {
-      toast.error("Digite um tema ou palavra-chave para a IA.");
+    if (!aiPrompt.trim()) {
+      toast.error('Digite um tema ou palavra-chave para a IA.');
       return;
     }
 
     setIsGenerating(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY! });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Você é um especialista em Segurança do Trabalho. Elabore um texto curto e direto para um Diálogo Diário de Segurança (DDS) sobre o tema: "${aiPrompt}". O texto deve ser educativo, focado em prevenção e ter no máximo 3 parágrafos.`,
+      const response = await fetch('/api/generate-dds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiPrompt }),
       });
 
-      const text = response.text || "Não foi possível gerar o conteúdo.";
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Erro desconhecido');
+      }
+
+      const { text } = await response.json();
       setGeneratedContent(text);
       setNewTheme(aiPrompt);
       setNewContent(text);
-      toast.success("Conteúdo gerado com sucesso!");
-    } catch (error) {
+      toast.success('Conteúdo gerado com sucesso!');
+    } catch (error: any) {
       console.error(error);
-      toast.error("Erro ao gerar conteúdo com IA.");
+      toast.error(error.message || 'Erro ao gerar conteúdo com IA.');
     } finally {
       setIsGenerating(false);
-    }
-  };
-
-  const deleteRecord = async (id: string) => {
-    if (confirm('Deseja excluir este registro?')) {
-      try {
-        const { error } = await supabase
-          .from('dds_records')
-          .delete()
-          .eq('id', id);
-
-        if (error) throw error;
-        toast.success("Registro removido.");
-        fetchDDSRecords();
-      } catch (error: any) {
-        console.error('Error deleting DDS:', error.message);
-        toast.error('Erro ao excluir registro');
-      }
     }
   };
 
@@ -172,45 +246,32 @@ export default function DDSPage() {
     <>
       <Header title="Gestão de DDS" />
       <div className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6">
-        
+
         {/* Tabs Navigation */}
         <div className="flex border-b border-slate-200">
-          <button 
-            onClick={() => setActiveTab('history')}
-            className={cn(
-              "px-6 py-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2",
-              activeTab === 'history' ? "border-[#1A237E] text-[#1A237E]" : "border-transparent text-slate-500 hover:text-slate-700"
-            )}
-          >
-            <History size={18} />
-            Histórico e Rastreabilidade
-          </button>
-          <button 
-            onClick={() => setActiveTab('new')}
-            className={cn(
-              "px-6 py-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2",
-              activeTab === 'new' ? "border-[#1A237E] text-[#1A237E]" : "border-transparent text-slate-500 hover:text-slate-700"
-            )}
-          >
-            <Plus size={18} />
-            Novo Registro
-          </button>
-          <button 
-            onClick={() => setActiveTab('ai')}
-            className={cn(
-              "px-6 py-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2",
-              activeTab === 'ai' ? "border-[#1A237E] text-[#1A237E]" : "border-transparent text-slate-500 hover:text-slate-700"
-            )}
-          >
-            <Sparkles size={18} />
-            Elaborar com IA
-          </button>
+          {[
+            { id: 'history', label: 'Histórico e Rastreabilidade', icon: History },
+            { id: 'new', label: 'Novo Registro', icon: Plus },
+            { id: 'ai', label: 'Elaborar com IA', icon: Sparkles },
+          ].map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id as typeof activeTab)}
+              className={cn(
+                'px-6 py-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2',
+                activeTab === id ? 'border-[#1A237E] text-[#1A237E]' : 'border-transparent text-slate-500 hover:text-slate-700'
+              )}
+            >
+              <Icon size={18} />
+              {label}
+            </button>
+          ))}
         </div>
 
         <div className="mt-6">
           <AnimatePresence mode="wait">
             {activeTab === 'history' && (
-              <motion.div 
+              <motion.div
                 key="history"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -221,10 +282,12 @@ export default function DDSPage() {
                   <h3 className="text-lg font-bold text-slate-800">Rastreabilidade de DDS</h3>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input 
-                      type="text" 
-                      placeholder="Buscar tema ou data..." 
-                      className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A237E]/20"
+                    <input
+                      type="text"
+                      placeholder="Buscar tema, técnico ou data..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A237E]/20 w-64"
                     />
                   </div>
                 </div>
@@ -234,14 +297,16 @@ export default function DDSPage() {
                     <Loader2 className="animate-spin mb-2" size={24} />
                     <span>Carregando registros...</span>
                   </div>
-                ) : records.length === 0 ? (
+                ) : filteredRecords.length === 0 ? (
                   <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-300">
                     <History size={48} className="mx-auto text-slate-300 mb-4" />
-                    <p className="text-slate-500 font-medium">Nenhum registro encontrado.</p>
+                    <p className="text-slate-500 font-medium">
+                      {searchTerm ? 'Nenhum resultado para a busca.' : 'Nenhum registro encontrado.'}
+                    </p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4">
-                    {records.map((record) => (
+                    {filteredRecords.map((record) => (
                       <div key={record.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-[#1A237E]/30 transition-all group">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                           <div className="flex items-start gap-4">
@@ -256,6 +321,9 @@ export default function DDSPage() {
                                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-blue-50 text-blue-600 rounded">
                                   {record.duration}
                                 </span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-green-50 text-green-600 rounded">
+                                  {record.technician}
+                                </span>
                               </div>
                               <h4 className="font-bold text-slate-800">{record.theme}</h4>
                               <p className="text-sm text-slate-500 line-clamp-1 mt-1">{record.content}</p>
@@ -269,7 +337,7 @@ export default function DDSPage() {
                               </div>
                               <div className="flex -space-x-2 justify-end">
                                 {record.participants && record.participants.slice(0, 3).map((p, i) => (
-                                  <div key={i} className="w-7 h-7 rounded-full bg-[#1A237E] text-white flex items-center justify-center text-[10px] font-bold border-2 border-white">
+                                  <div key={i} className="w-7 h-7 rounded-full bg-[#1A237E] text-white flex items-center justify-center text-[10px] font-bold border-2 border-white" title={p}>
                                     {p.charAt(0)}
                                   </div>
                                 ))}
@@ -281,12 +349,17 @@ export default function DDSPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <button className="p-2 text-slate-400 hover:text-[#1A237E] hover:bg-slate-50 rounded-lg transition-all">
+                              <button
+                                onClick={() => handleOpenEdit(record)}
+                                className="p-2 text-slate-400 hover:text-[#1A237E] hover:bg-slate-50 rounded-lg transition-all"
+                                title="Editar"
+                              >
                                 <Edit2 size={18} />
                               </button>
-                              <button 
-                                onClick={() => deleteRecord(record.id)}
+                              <button
+                                onClick={() => setConfirmDeleteId(record.id)}
                                 className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                title="Excluir"
                               >
                                 <Trash2 size={18} />
                               </button>
@@ -301,7 +374,7 @@ export default function DDSPage() {
             )}
 
             {activeTab === 'new' && (
-              <motion.div 
+              <motion.div
                 key="new"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -313,12 +386,12 @@ export default function DDSPage() {
                     <ClipboardList className="text-[#1A237E]" size={20} />
                     Detalhes do DDS
                   </h3>
-                  
+
                   <div className="space-y-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Técnico Responsável</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={technicianName}
                         onChange={(e) => setTechnicianName(e.target.value)}
                         placeholder="Nome do técnico..."
@@ -327,8 +400,8 @@ export default function DDSPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Tema do Diálogo</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={newTheme}
                         onChange={(e) => setNewTheme(e.target.value)}
                         placeholder="Ex: Segurança em Altura, Uso de Luvas..."
@@ -337,7 +410,7 @@ export default function DDSPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Conteúdo Abordado</label>
-                      <textarea 
+                      <textarea
                         rows={6}
                         value={newContent}
                         onChange={(e) => setNewContent(e.target.value)}
@@ -347,7 +420,7 @@ export default function DDSPage() {
                     </div>
                   </div>
 
-                  <button 
+                  <button
                     onClick={handleSaveDDS}
                     className="w-full bg-[#1A237E] text-white py-4 rounded-xl font-bold hover:bg-opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#1A237E]/20"
                   >
@@ -367,37 +440,43 @@ export default function DDSPage() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto pr-2">
-                    {collaborators.map((name) => (
-                      <button
-                        key={name}
-                        onClick={() => toggleParticipant(name)}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-xl border transition-all text-left",
-                          selectedParticipants.includes(name) 
-                            ? "bg-green-50 border-green-200 text-green-800" 
-                            : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs",
-                            selectedParticipants.includes(name) ? "bg-green-200" : "bg-slate-100"
-                          )}>
-                            {name.charAt(0)}
+                  {collaborators.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 text-sm">
+                      Nenhum colaborador ativo cadastrado.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto pr-2">
+                      {collaborators.map((name) => (
+                        <button
+                          key={name}
+                          onClick={() => toggleParticipant(name)}
+                          className={cn(
+                            'flex items-center justify-between p-3 rounded-xl border transition-all text-left',
+                            selectedParticipants.includes(name)
+                              ? 'bg-green-50 border-green-200 text-green-800'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              'w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs',
+                              selectedParticipants.includes(name) ? 'bg-green-200' : 'bg-slate-100'
+                            )}>
+                              {name.charAt(0)}
+                            </div>
+                            <span className="text-sm font-medium">{name}</span>
                           </div>
-                          <span className="text-sm font-medium">{name}</span>
-                        </div>
-                        {selectedParticipants.includes(name) && <UserCheck size={18} className="text-green-600" />}
-                      </button>
-                    ))}
-                  </div>
+                          {selectedParticipants.includes(name) && <UserCheck size={18} className="text-green-600" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
 
             {activeTab === 'ai' && (
-              <motion.div 
+              <motion.div
                 key="ai"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -408,7 +487,7 @@ export default function DDSPage() {
                   <div className="absolute top-0 right-0 p-4 opacity-10">
                     <Sparkles size={120} />
                   </div>
-                  
+
                   <div className="relative z-10 space-y-6">
                     <div className="space-y-2">
                       <h3 className="text-2xl font-bold">Assistente de Conteúdo IA</h3>
@@ -418,14 +497,15 @@ export default function DDSPage() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3">
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={aiPrompt}
                         onChange={(e) => setAiPrompt(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && generateWithAI()}
                         placeholder="Digite o tema (ex: NR-10, Ergonomia...)"
                         className="flex-1 px-5 py-4 bg-white/10 border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30"
                       />
-                      <button 
+                      <button
                         onClick={generateWithAI}
                         disabled={isGenerating}
                         className="px-8 py-4 bg-white text-[#1A237E] rounded-xl font-bold hover:bg-slate-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
@@ -436,17 +516,17 @@ export default function DDSPage() {
                     </div>
 
                     {generatedContent && (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className="bg-white/10 border border-white/20 p-6 rounded-xl space-y-4"
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold uppercase tracking-widest text-white/60">Sugestão Gerada</span>
-                          <button 
+                          <button
                             onClick={() => {
                               setActiveTab('new');
-                              toast.success("Conteúdo copiado para o formulário!");
+                              toast.success('Conteúdo copiado para o formulário!');
                             }}
                             className="text-xs font-bold flex items-center gap-1 hover:underline"
                           >
@@ -463,11 +543,11 @@ export default function DDSPage() {
 
                 <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {[
-                    "NR-35: Trabalho em Altura",
-                    "Ergonomia no Escritório",
-                    "Prevenção de Incêndios"
+                    'NR-35: Trabalho em Altura',
+                    'Ergonomia no Escritório',
+                    'Prevenção de Incêndios',
                   ].map((topic) => (
-                    <button 
+                    <button
                       key={topic}
                       onClick={() => setAiPrompt(topic)}
                       className="p-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-[#1A237E] hover:text-[#1A237E] transition-all text-left flex items-center justify-between group"
@@ -482,6 +562,125 @@ export default function DDSPage() {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Modal Editar Registro */}
+      <AnimatePresence>
+        {isEditModalOpen && editingRecord && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditModalOpen(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-[#1A237E]/10 text-[#1A237E] rounded-lg">
+                    <Edit2 size={18} />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800">Editar Registro DDS</h3>
+                </div>
+                <button onClick={() => setIsEditModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Técnico Responsável</label>
+                  <input
+                    type="text"
+                    value={editForm.technician}
+                    onChange={(e) => setEditForm({ ...editForm, technician: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-[#1A237E]/20 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Tema do Diálogo</label>
+                  <input
+                    type="text"
+                    value={editForm.theme}
+                    onChange={(e) => setEditForm({ ...editForm, theme: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-[#1A237E]/20 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Conteúdo</label>
+                  <textarea
+                    rows={5}
+                    value={editForm.content}
+                    onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-[#1A237E]/20 outline-none resize-none"
+                  />
+                </div>
+                <div className="pt-4 flex gap-3">
+                  <button
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="flex-1 px-6 py-2.5 border border-slate-200 text-slate-600 rounded-lg font-bold hover:bg-slate-50 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    className="flex-1 px-6 py-2.5 bg-[#1A237E] text-white rounded-lg font-bold hover:bg-opacity-90 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Check size={18} />
+                    Salvar Alterações
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Confirmar Exclusão */}
+      <AnimatePresence>
+        {confirmDeleteId && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmDeleteId(null)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 text-center"
+            >
+              <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={32} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 mb-2">Excluir Registro?</h3>
+              <p className="text-sm text-slate-500 mb-6">Esta ação não pode ser desfeita.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg font-bold hover:bg-slate-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => { deleteRecord(confirmDeleteId); setConfirmDeleteId(null); }}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-all"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

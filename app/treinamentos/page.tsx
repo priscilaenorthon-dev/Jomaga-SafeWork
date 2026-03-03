@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { 
   GraduationCap, 
@@ -157,7 +157,7 @@ export default function TreinamentosPage() {
           .eq('id', id);
 
         if (error) throw error;
-        toast.error('Treinamento removido.');
+        toast.success('Treinamento removido.');
         fetchTrainings();
       } catch (error: any) {
         console.error('Error deleting training:', error.message);
