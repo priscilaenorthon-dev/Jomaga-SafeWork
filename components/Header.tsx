@@ -1,0 +1,156 @@
+'use client';
+
+import React, { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
+import { Search, Bell, X, Check, Clock, Shield, AlertTriangle, User, Settings, LogOut } from 'lucide-react';
+import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'motion/react';
+import { cn } from '@/lib/utils';
+
+export function Header({ title }: { title: string }) {
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [userProfile, setUserProfile] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('jomaga_user_profile');
+      return saved ? JSON.parse(saved) : {
+        name: 'Carlos Rocha',
+        role: 'Técnico de Segurança',
+        gender: 'male'
+      };
+    }
+    return {
+      name: 'Carlos Rocha',
+      role: 'Técnico de Segurança',
+      gender: 'male'
+    };
+  });
+  const notificationRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const saved = localStorage.getItem('jomaga_user_profile');
+      if (saved) setUserProfile(JSON.parse(saved));
+    };
+    
+    window.addEventListener('user-profile-updated', handleUpdate);
+    
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      window.removeEventListener('user-profile-updated', handleUpdate);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const notifications = [
+    { id: 1, title: 'Novo incidente reportado', desc: 'Queda de nível na Produção A', time: '5 min atrás', type: 'incident' },
+    { id: 2, title: 'Treinamento pendente', desc: 'NR-35 vence em 3 dias para 5 colaboradores', time: '1 hora atrás', type: 'training' },
+    { id: 3, title: 'EPI entregue', desc: 'Carlos Rocha recebeu novo capacete', time: '2 horas atrás', type: 'epi' },
+  ];
+
+  return (
+    <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 lg:px-8 shrink-0 z-50">
+      <div className="flex items-center gap-4 lg:gap-6">
+        <h2 className="text-lg lg:text-xl font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] lg:max-w-none ml-12 lg:ml-0">
+          {title}
+        </h2>
+        <div className="relative hidden md:block w-48 lg:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <input 
+            className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none" 
+            placeholder="Buscar registros..." 
+            type="text"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 lg:gap-4">
+        <div className="flex items-center gap-1 lg:gap-2">
+          {/* Notificações */}
+          <div className="relative" ref={notificationRef}>
+            <button 
+              onClick={() => setShowNotifications(!showNotifications)}
+              className={cn(
+                "p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 relative transition-colors",
+                showNotifications && "bg-slate-100 text-primary"
+              )}
+            >
+              <Bell size={20} />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-[#FF9800] rounded-full border-2 border-white dark:border-slate-900"></span>
+            </button>
+
+            <AnimatePresence>
+              {showNotifications && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+                >
+                  <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <h4 className="font-bold text-slate-800 dark:text-slate-100">Notificações</h4>
+                    <button className="text-[10px] font-bold text-primary uppercase hover:underline">Marcar todas como lidas</button>
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {notifications.map((n) => (
+                      <div key={n.id} className="p-4 border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors">
+                        <div className="flex gap-3">
+                          <div className={cn(
+                            "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                            n.type === 'incident' ? 'bg-red-100 text-red-600' : 
+                            n.type === 'training' ? 'bg-blue-100 text-blue-600' : 
+                            'bg-green-100 text-green-600'
+                          )}>
+                            {n.type === 'incident' ? <AlertTriangle size={14} /> : n.type === 'training' ? <Clock size={14} /> : <Check size={14} />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{n.title}</p>
+                            <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">{n.desc}</p>
+                            <p className="text-[9px] text-slate-400 mt-1">{n.time}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button className="w-full py-3 text-xs font-bold text-slate-500 hover:text-primary transition-colors bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
+                    Ver todas as notificações
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+        </div>
+
+        <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1 lg:mx-2"></div>
+        
+        <div className="flex items-center gap-2 lg:gap-3">
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{userProfile.name}</p>
+            <p className="text-[10px] lg:text-xs text-slate-500 font-medium">{userProfile.role}</p>
+          </div>
+          <button 
+            onClick={() => toast.info('Perfil do usuário em desenvolvimento')}
+            className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-slate-200 overflow-hidden border border-slate-300 relative shrink-0 hover:ring-2 hover:ring-primary/20 transition-all"
+          >
+            <Image 
+              src={userProfile.gender === 'male' 
+                ? "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" 
+                : "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka"
+              }
+              alt={userProfile.name}
+              fill
+              className="object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}

@@ -1,0 +1,366 @@
+'use client';
+
+import React, { useState } from 'react';
+import Image from 'next/image';
+import { Header } from '@/components/Header';
+import { Settings, User, Bell, Shield, Globe, X, Check, Save, Mail, Briefcase, Lock, Eye, EyeOff } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+
+type SettingType = 'perfil' | 'notificacoes' | 'seguranca' | 'idioma' | null;
+
+export default function ConfiguracoesPage() {
+  const [activeModal, setActiveModal] = useState<SettingType>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    current: '',
+    new: '',
+    confirm: ''
+  });
+
+  // Estados dos formulários
+  const [userProfile, setUserProfile] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('jomaga_user_profile');
+      return saved ? JSON.parse(saved) : {
+        name: 'Carlos Rocha',
+        email: 'carlos.rocha@jomaga.com.br',
+        role: 'Técnico de Segurança',
+        gender: 'male' as 'male' | 'female'
+      };
+    }
+    return {
+      name: 'Carlos Rocha',
+      email: 'carlos.rocha@jomaga.com.br',
+      role: 'Técnico de Segurança',
+      gender: 'male' as 'male' | 'female'
+    };
+  });
+
+  const [notificationSettings, setNotificationSettings] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('jomaga_notification_settings');
+      return saved ? JSON.parse(saved) : {
+        incidentes: true,
+        treinamentos: true,
+        epis: false,
+        relatorios: true
+      };
+    }
+    return {
+      incidentes: true,
+      treinamentos: true,
+      epis: false,
+      relatorios: true
+    };
+  });
+
+  const [languageSettings, setLanguageSettings] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('jomaga_language_settings');
+      return saved ? JSON.parse(saved) : {
+        language: 'pt-BR',
+        timezone: 'GMT-3'
+      };
+    }
+    return {
+      language: 'pt-BR',
+      timezone: 'GMT-3'
+    };
+  });
+
+  const handleSave = (type: string) => {
+    if (activeModal === 'perfil') {
+      localStorage.setItem('jomaga_user_profile', JSON.stringify(userProfile));
+      // Disparar evento para atualizar o Header em tempo real
+      window.dispatchEvent(new Event('user-profile-updated'));
+    } else if (activeModal === 'notificacoes') {
+      localStorage.setItem('jomaga_notification_settings', JSON.stringify(notificationSettings));
+    } else if (activeModal === 'idioma') {
+      localStorage.setItem('jomaga_language_settings', JSON.stringify(languageSettings));
+    }
+    
+    toast.success(`Configurações de ${type} salvas com sucesso!`);
+    setActiveModal(null);
+  };
+
+  const settingsOptions = [
+    { id: 'perfil' as const, label: "Perfil do Usuário", desc: "Gerencie suas informações pessoais", icon: User },
+    { id: 'notificacoes' as const, label: "Notificações", desc: "Configure alertas e avisos", icon: Bell },
+    { id: 'seguranca' as const, label: "Segurança e Acesso", desc: "Alterar senha e permissões", icon: Shield },
+    { id: 'idioma' as const, label: "Idioma e Região", desc: "Português (Brasil), GMT-3", icon: Globe },
+  ];
+
+  return (
+    <>
+      <Header title="Configurações do Sistema" />
+      <div className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6">
+        <div className="max-w-2xl space-y-4">
+          {settingsOptions.map((item, i) => (
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.1 }}
+              key={item.id} 
+              onClick={() => setActiveModal(item.id)}
+              className="bg-white p-5 rounded-xl border border-slate-200 flex items-center justify-between cursor-pointer hover:border-primary/30 hover:bg-slate-50 transition-all group shadow-sm"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-slate-100 text-slate-500 rounded-xl group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                  <item.icon size={22} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-800 text-sm">{item.label}</h4>
+                  <p className="text-xs text-slate-500">{item.desc}</p>
+                </div>
+              </div>
+              <Settings size={18} className="text-slate-300 group-hover:text-primary transition-colors" />
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Modais de Configuração */}
+      <AnimatePresence>
+        {activeModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setActiveModal(null)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden"
+            >
+              {/* Header do Modal */}
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 text-primary rounded-lg">
+                    {activeModal === 'perfil' && <User size={20} />}
+                    {activeModal === 'notificacoes' && <Bell size={20} />}
+                    {activeModal === 'seguranca' && <Shield size={20} />}
+                    {activeModal === 'idioma' && <Globe size={20} />}
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800">
+                    {settingsOptions.find(o => o.id === activeModal)?.label}
+                  </h3>
+                </div>
+                <button onClick={() => setActiveModal(null)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Conteúdo do Modal */}
+              <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                {/* PERFIL */}
+                {activeModal === 'perfil' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-center gap-6 py-2">
+                      <button 
+                        onClick={() => setUserProfile({...userProfile, gender: 'male'})}
+                        className={cn(
+                          "flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all w-32",
+                          userProfile.gender === 'male' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:border-slate-200 bg-white"
+                        )}
+                      >
+                        <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shadow-inner">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10">
+                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                          </svg>
+                        </div>
+                        <span className={cn("text-xs font-bold uppercase tracking-wider", userProfile.gender === 'male' ? "text-primary" : "text-slate-500")}>Homem</span>
+                      </button>
+                      <button 
+                        onClick={() => setUserProfile({...userProfile, gender: 'female'})}
+                        className={cn(
+                          "flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all w-32",
+                          userProfile.gender === 'female' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:border-slate-200 bg-white"
+                        )}
+                      >
+                        <div className="w-20 h-20 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 shadow-inner">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10">
+                            <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
+                            <path d="M12 17l0 4" />
+                            <path d="M10 19l4 0" />
+                            <path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
+                          </svg>
+                        </div>
+                        <span className={cn("text-xs font-bold uppercase tracking-wider", userProfile.gender === 'female' ? "text-primary" : "text-slate-500")}>Mulher</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Nome Completo</label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input 
+                          value={userProfile.name}
+                          onChange={e => setUserProfile({...userProfile, name: e.target.value})}
+                          className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase">E-mail Corporativo</label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input 
+                          value={userProfile.email}
+                          onChange={e => setUserProfile({...userProfile, email: e.target.value})}
+                          className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Cargo / Função</label>
+                      <div className="relative">
+                        <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input 
+                          value={userProfile.role}
+                          onChange={e => setUserProfile({...userProfile, role: e.target.value})}
+                          className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* NOTIFICAÇÕES */}
+                {activeModal === 'notificacoes' && (
+                  <div className="space-y-4">
+                    {[
+                      { id: 'incidentes', label: 'Alertas de Incidentes', desc: 'Receber avisos de novos incidentes reportados' },
+                      { id: 'treinamentos', label: 'Vencimento de Treinamentos', desc: 'Avisar quando treinamentos estiverem para vencer' },
+                      { id: 'epis', label: 'Controle de EPIs', desc: 'Notificar sobre baixas de estoque ou entregas' },
+                      { id: 'relatorios', label: 'Relatórios Semanais', desc: 'Receber resumo de indicadores por e-mail' },
+                    ].map((item) => (
+                      <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">{item.label}</p>
+                          <p className="text-[10px] text-slate-500">{item.desc}</p>
+                        </div>
+                        <button 
+                          onClick={() => setNotificationSettings({...notificationSettings, [item.id]: !notificationSettings[item.id as keyof typeof notificationSettings]})}
+                          className={cn(
+                            "w-10 h-5 rounded-full relative transition-colors duration-200",
+                            notificationSettings[item.id as keyof typeof notificationSettings] ? "bg-primary" : "bg-slate-300"
+                          )}
+                        >
+                          <div className={cn(
+                            "absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200",
+                            notificationSettings[item.id as keyof typeof notificationSettings] ? "left-6" : "left-1"
+                          )} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* SEGURANÇA */}
+                {activeModal === 'seguranca' && (
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Senha Atual</label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input 
+                          type={showPassword ? "text" : "password"}
+                          value={passwordData.current}
+                          onChange={e => setPasswordData({...passwordData, current: e.target.value})}
+                          placeholder="••••••••"
+                          className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Nova Senha</label>
+                      <input 
+                        type="password"
+                        value={passwordData.new}
+                        onChange={e => setPasswordData({...passwordData, new: e.target.value})}
+                        placeholder="Mínimo 8 caracteres"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Confirmar Nova Senha</label>
+                      <input 
+                        type="password"
+                        value={passwordData.confirm}
+                        onChange={e => setPasswordData({...passwordData, confirm: e.target.value})}
+                        placeholder="Repita a nova senha"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* IDIOMA */}
+                {activeModal === 'idioma' && (
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Idioma do Sistema</label>
+                      <select 
+                        value={languageSettings.language}
+                        onChange={e => setLanguageSettings({...languageSettings, language: e.target.value})}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                      >
+                        <option value="pt-BR">Português (Brasil)</option>
+                        <option value="en-US">English (US)</option>
+                        <option value="es-ES">Español</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Fuso Horário</label>
+                      <select 
+                        value={languageSettings.timezone}
+                        onChange={e => setLanguageSettings({...languageSettings, timezone: e.target.value})}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                      >
+                        <option value="GMT-3">Brasília (GMT-3)</option>
+                        <option value="GMT-4">Manaus (GMT-4)</option>
+                        <option value="GMT-5">Rio Branco (GMT-5)</option>
+                        <option value="UTC">UTC</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Botões de Ação */}
+              <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
+                <button 
+                  onClick={() => setActiveModal(null)}
+                  className="flex-1 px-6 py-2.5 border border-slate-200 text-slate-600 rounded-lg font-bold hover:bg-slate-50 transition-all text-sm"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={() => handleSave(settingsOptions.find(o => o.id === activeModal)?.label || '')}
+                  className="flex-1 px-6 py-2.5 bg-primary text-white rounded-lg font-bold hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/30 text-sm active:scale-95"
+                >
+                  <Save size={18} />
+                  Salvar Alterações
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
