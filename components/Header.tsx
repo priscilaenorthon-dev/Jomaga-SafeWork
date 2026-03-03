@@ -2,55 +2,68 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { Search, Bell, X, Check, Clock, Shield, AlertTriangle, User, Settings, LogOut } from 'lucide-react';
+import { Search, Bell, X, Check, Clock, AlertTriangle, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
+import { createClient } from '@/lib/supabase-client';
+import { useRouter } from 'next/navigation';
 
 export function Header({ title }: { title: string }) {
+  const supabase = createClient();
+  const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [userProfile, setUserProfile] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jomaga_user_profile');
       return saved ? JSON.parse(saved) : {
-        name: 'Carlos Rocha',
+        name: 'Usuário',
         role: 'Técnico de Segurança',
         gender: 'male'
       };
     }
-    return {
-      name: 'Carlos Rocha',
-      role: 'Técnico de Segurança',
-      gender: 'male'
-    };
+    return { name: 'Usuário', role: 'Técnico de Segurança', gender: 'male' };
   });
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const loadUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) setAuthEmail(user.email);
+    };
+    loadUser();
+
     const handleUpdate = () => {
       const saved = localStorage.getItem('jomaga_user_profile');
       if (saved) setUserProfile(JSON.parse(saved));
     };
-    
+
     window.addEventListener('user-profile-updated', handleUpdate);
-    
+
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
         setShowNotifications(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    
+
     return () => {
       window.removeEventListener('user-profile-updated', handleUpdate);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+    toast.success('Sessão encerrada com sucesso.');
+  };
+
   const notifications = [
     { id: 1, title: 'Novo incidente reportado', desc: 'Queda de nível na Produção A', time: '5 min atrás', type: 'incident' },
     { id: 2, title: 'Treinamento pendente', desc: 'NR-35 vence em 3 dias para 5 colaboradores', time: '1 hora atrás', type: 'training' },
-    { id: 3, title: 'EPI entregue', desc: 'Carlos Rocha recebeu novo capacete', time: '2 horas atrás', type: 'epi' },
+    { id: 3, title: 'EPI entregue', desc: 'Novo capacete registrado no sistema', time: '2 horas atrás', type: 'epi' },
   ];
 
   return (
@@ -61,9 +74,9 @@ export function Header({ title }: { title: string }) {
         </h2>
         <div className="relative hidden md:block w-48 lg:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none" 
-            placeholder="Buscar registros..." 
+          <input
+            className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+            placeholder="Buscar registros..."
             type="text"
           />
         </div>
@@ -73,20 +86,20 @@ export function Header({ title }: { title: string }) {
         <div className="flex items-center gap-1 lg:gap-2">
           {/* Notificações */}
           <div className="relative" ref={notificationRef}>
-            <button 
+            <button
               onClick={() => setShowNotifications(!showNotifications)}
               className={cn(
-                "p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 relative transition-colors",
-                showNotifications && "bg-slate-100 text-primary"
+                'p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 relative transition-colors',
+                showNotifications && 'bg-slate-100 text-primary'
               )}
             >
               <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-[#FF9800] rounded-full border-2 border-white dark:border-slate-900"></span>
+              <span className="absolute top-2 right-2 w-2 h-2 bg-[#FF9800] rounded-full border-2 border-white dark:border-slate-900" />
             </button>
 
             <AnimatePresence>
               {showNotifications && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -101,9 +114,9 @@ export function Header({ title }: { title: string }) {
                       <div key={n.id} className="p-4 border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors">
                         <div className="flex gap-3">
                           <div className={cn(
-                            "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                            n.type === 'incident' ? 'bg-red-100 text-red-600' : 
-                            n.type === 'training' ? 'bg-blue-100 text-blue-600' : 
+                            'w-8 h-8 rounded-full flex items-center justify-center shrink-0',
+                            n.type === 'incident' ? 'bg-red-100 text-red-600' :
+                            n.type === 'training' ? 'bg-blue-100 text-blue-600' :
                             'bg-green-100 text-green-600'
                           )}>
                             {n.type === 'incident' ? <AlertTriangle size={14} /> : n.type === 'training' ? <Clock size={14} /> : <Check size={14} />}
@@ -124,30 +137,33 @@ export function Header({ title }: { title: string }) {
               )}
             </AnimatePresence>
           </div>
-
         </div>
 
-        <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1 lg:mx-2"></div>
-        
+        <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1 lg:mx-2" />
+
         <div className="flex items-center gap-2 lg:gap-3">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{userProfile.name}</p>
-            <p className="text-[10px] lg:text-xs text-slate-500 font-medium">{userProfile.role}</p>
+            <p className="text-[10px] lg:text-xs text-slate-500 font-medium">{authEmail || userProfile.role}</p>
           </div>
-          <button 
-            onClick={() => toast.info('Perfil do usuário em desenvolvimento')}
-            className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-slate-200 overflow-hidden border border-slate-300 relative shrink-0 hover:ring-2 hover:ring-primary/20 transition-all"
-          >
-            <Image 
-              src={userProfile.gender === 'male' 
-                ? "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" 
-                : "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka"
+          <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-slate-200 overflow-hidden border border-slate-300 relative shrink-0">
+            <Image
+              src={userProfile.gender === 'male'
+                ? 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
+                : 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka'
               }
               alt={userProfile.name}
               fill
               className="object-cover"
               referrerPolicy="no-referrer"
             />
+          </div>
+          <button
+            onClick={handleLogout}
+            title="Sair"
+            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+          >
+            <LogOut size={18} />
           </button>
         </div>
       </div>

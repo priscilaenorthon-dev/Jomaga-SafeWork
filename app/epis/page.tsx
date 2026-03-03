@@ -145,7 +145,7 @@ export default function EPIsPage() {
           .eq('id', id);
 
         if (error) throw error;
-        toast.error('EPI removido do sistema.');
+        toast.success('EPI removido do sistema.');
         fetchEPIs();
       } catch (error: any) {
         console.error('Error deleting EPI:', error.message);

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { Header } from '@/components/Header';
-import { Settings, User, Bell, Shield, Globe, X, Check, Save, Mail, Briefcase, Lock, Eye, EyeOff } from 'lucide-react';
+import { Settings, User, Bell, Shield, Globe, X, Save, Mail, Briefcase } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -12,12 +12,6 @@ type SettingType = 'perfil' | 'notificacoes' | 'seguranca' | 'idioma' | null;
 
 export default function ConfiguracoesPage() {
   const [activeModal, setActiveModal] = useState<SettingType>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [passwordData, setPasswordData] = useState({
-    current: '',
-    new: '',
-    confirm: ''
-  });
 
   // Estados dos formulários
   const [userProfile, setUserProfile] = useState(() => {
@@ -266,45 +260,22 @@ export default function ConfiguracoesPage() {
                 {/* SEGURANÇA */}
                 {activeModal === 'seguranca' && (
                   <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase">Senha Atual</label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <input 
-                          type={showPassword ? "text" : "password"}
-                          value={passwordData.current}
-                          onChange={e => setPasswordData({...passwordData, current: e.target.value})}
-                          placeholder="••••••••"
-                          className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                        >
-                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
+                    <div className="flex items-start gap-4 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                      <Shield size={24} className="text-blue-500 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-bold text-slate-800 mb-1">Autenticação via Magic Link</p>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          Este sistema utiliza Magic Link por e-mail — sem senhas. O acesso é concedido por links de uso único enviados para seu e-mail corporativo, tornando o login mais seguro e prático.
+                        </p>
                       </div>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase">Nova Senha</label>
-                      <input 
-                        type="password"
-                        value={passwordData.new}
-                        onChange={e => setPasswordData({...passwordData, new: e.target.value})}
-                        placeholder="Mínimo 8 caracteres"
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase">Confirmar Nova Senha</label>
-                      <input 
-                        type="password"
-                        value={passwordData.confirm}
-                        onChange={e => setPasswordData({...passwordData, confirm: e.target.value})}
-                        placeholder="Repita a nova senha"
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                      />
+                    <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-2">
+                      <p className="text-xs font-bold text-slate-500 uppercase">Boas práticas de segurança</p>
+                      <ul className="text-xs text-slate-500 space-y-1.5 list-disc list-inside">
+                        <li>Nunca compartilhe links de acesso recebidos por e-mail</li>
+                        <li>Sempre faça logout ao terminar o uso em dispositivos compartilhados</li>
+                        <li>Verifique o remetente do e-mail antes de clicar em links</li>
+                      </ul>
                     </div>
                   </div>
                 )}

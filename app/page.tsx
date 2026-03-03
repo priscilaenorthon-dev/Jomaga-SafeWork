@@ -120,24 +120,37 @@ export default function Dashboard() {
       setLoading(true);
       
       // Fetch counts in parallel
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(today.getDate() - 30);
+      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+
       const [
         { count: episCount },
         { count: expiringCount },
         { count: trainingsCount },
-        { count: incidentsCount }
+        { count: incidentsCount },
+        { count: ddsTotal },
+        { count: ddsWithParticipants }
       ] = await Promise.all([
         supabase.from('epis').select('*', { count: 'exact', head: true }),
         supabase.from('epis').select('*', { count: 'exact', head: true }).eq('status', 'Vencendo'),
         supabase.from('trainings').select('*', { count: 'exact', head: true }).neq('status', 'Concluído'),
-        supabase.from('incidents').select('*', { count: 'exact', head: true })
+        supabase.from('incidents').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo.toISOString()),
+        supabase.from('dds_records').select('*', { count: 'exact', head: true }).gte('date', thirtyDaysAgoStr),
+        supabase.from('dds_records').select('*', { count: 'exact', head: true }).gte('date', thirtyDaysAgoStr).not('participants', 'eq', '{}')
       ]);
+
+      const conformity = ddsTotal && ddsTotal > 0
+        ? Math.round(((ddsWithParticipants || 0) / ddsTotal) * 100)
+        : 0;
 
       setStats({
         epis: episCount || 0,
         expiringEpis: expiringCount || 0,
         trainings: trainingsCount || 0,
         incidents: incidentsCount || 0,
-        ddsConformity: 98 // Hardcoded for now or fetch from DDS records
+        ddsConformity: conformity
       });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -196,14 +209,14 @@ export default function Dashboard() {
             trend="danger" 
             loading={loading}
           />
-          <StatCard 
-            title="Conformidade DDS" 
-            value={`${stats.ddsConformity}%`} 
-            change="Na Meta" 
-            icon={UserCheck} 
-            iconColor="text-green-500" 
-            bgColor="bg-green-50" 
-            trend="success" 
+          <StatCard
+            title="Conformidade DDS"
+            value={stats.ddsConformity > 0 ? `${stats.ddsConformity}%` : '—'}
+            change={stats.ddsConformity >= 80 ? 'Na Meta' : stats.ddsConformity > 0 ? 'Abaixo da Meta' : 'Sem dados'}
+            icon={UserCheck}
+            iconColor="text-green-500"
+            bgColor="bg-green-50"
+            trend={stats.ddsConformity >= 80 ? 'success' : 'warning'}
             loading={loading}
           />
         </div>
