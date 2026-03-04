@@ -30,6 +30,11 @@ interface EPI {
   date: string;
 }
 
+interface Collaborator {
+  id: string;
+  name: string;
+}
+
 /** Calculates EPI status from the expiry date string (YYYY-MM-DD or ISO). */
 function calcStatus(dateStr: string): 'Ativo' | 'Vencendo' | 'Expirado' {
   if (!dateStr) return 'Ativo';
@@ -51,9 +56,11 @@ export default function EPIsPage() {
   const [editingEPI, setEditingEPI] = useState<EPI | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ item: '', user: '', date: '' });
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
 
   useEffect(() => {
     fetchEPIs();
+    fetchCollaborators();
   }, []);
 
   const fetchEPIs = async () => {
@@ -78,6 +85,15 @@ export default function EPIsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchCollaborators = async () => {
+    const { data } = await supabase
+      .from('collaborators')
+      .select('id, name')
+      .eq('status', 'Ativo')
+      .order('name');
+    if (data) setCollaborators(data);
   };
 
   const filteredEPIs = epis.filter(e =>
@@ -123,7 +139,7 @@ export default function EPIsPage() {
       if (editingEPI) {
         const { error } = await supabase
           .from('epis')
-          .update({ item: formData.item.trim(), user: formData.user.trim(), status, date: formData.date })
+          .update({ name: formData.item.trim(), item: formData.item.trim(), user: formData.user.trim(), status, date: formData.date })
           .eq('id', editingEPI.id);
 
         if (error) throw error;
@@ -131,7 +147,7 @@ export default function EPIsPage() {
       } else {
         const { error } = await supabase
           .from('epis')
-          .insert([{ item: formData.item.trim(), user: formData.user.trim(), status, date: formData.date }]);
+          .insert([{ name: formData.item.trim(), item: formData.item.trim(), user: formData.user.trim(), status, date: formData.date }]);
 
         if (error) throw error;
         toast.success('EPI registrado com sucesso!');
@@ -339,14 +355,24 @@ export default function EPIsPage() {
                   <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
                     <User size={14} /> Colaborador Responsável
                   </label>
-                  <input
+                  <select
                     required
-                    type="text"
-                    placeholder="Nome do colaborador"
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none bg-white"
                     value={formData.user}
                     onChange={(e) => setFormData({ ...formData, user: e.target.value })}
-                  />
+                  >
+                    <option value="">Selecione um colaborador</option>
+                    {collaborators.map((c) => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                    {/* Garante que o valor salvo apareça mesmo se o colaborador foi inativado */}
+                    {formData.user && !collaborators.find(c => c.name === formData.user) && (
+                      <option value={formData.user}>{formData.user}</option>
+                    )}
+                  </select>
+                  {collaborators.length === 0 && (
+                    <p className="text-xs text-slate-400 mt-1">Nenhum colaborador ativo cadastrado.</p>
+                  )}
                 </div>
 
                 <div className="space-y-1">
