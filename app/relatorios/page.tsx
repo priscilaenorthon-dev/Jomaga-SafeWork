@@ -48,6 +48,15 @@ interface EpiStatus {
   color: string;
 }
 
+interface Document {
+  id: string;
+  name: string;
+  size: string;
+  date: string;
+  category: string;
+  storage_path: string;
+}
+
 export default function RelatoriosPage() {
   const supabase = createClient();
 
@@ -56,16 +65,14 @@ export default function RelatoriosPage() {
   const [epiData, setEpiData] = useState<EpiStatus[]>([]);
   const [kpis, setKpis] = useState({ incidentes: 0, treinamentos: 0, ddsTotal: 0, ddsConformity: 0 });
 
-  const [documents, setDocuments] = useState([
-    { id: 1, name: 'PPRA_2025_Final.pdf', size: '2.4 MB', date: '15/01/2026', category: 'Segurança' },
-    { id: 2, name: 'PCMSO_Atualizado.pdf', size: '1.8 MB', date: '20/01/2026', category: 'Saúde' },
-    { id: 3, name: 'Laudo_Eletrico_Setor_A.pdf', size: '4.2 MB', date: '05/02/2026', category: 'Elétrica' },
-  ]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [confirmDeleteDocId, setConfirmDeleteDocId] = useState<number | null>(null);
+  const [confirmDeleteDocId, setConfirmDeleteDocId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReportData();
+    fetchDocuments();
   }, []);
 
   const fetchReportData = async () => {
@@ -155,33 +162,200 @@ export default function RelatoriosPage() {
     }
   };
 
-  const handleDownload = (title: string) => {
-    toast.info(`Iniciando download: ${title}`);
-    setTimeout(() => toast.success(`Download de ${title} concluído!`), 1500);
+  const fetchDocuments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setDocuments((data || []).map((doc: any) => ({
+        id: doc.id,
+        name: doc.name,
+        size: doc.size,
+        date: new Date(doc.created_at).toLocaleDateString('pt-BR'),
+        category: doc.category || 'Geral',
+        storage_path: doc.storage_path,
+      })));
+    } catch (err) {
+      console.error('Error fetching documents:', err);
+    }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDownload = async (title: string, storagePath?: string) => {
+    try {
+      if (storagePath) {
+        // Download from Supabase storage
+        const docItem = documents.find(d => d.storage_path === storagePath);
+        if (docItem) setDownloadingId(docItem.id);
+        toast.info(`Iniciando download: ${title}`);
+
+        const { data, error } = await supabase.storage
+          .from('documents')
+          .download(storagePath);
+
+        if (error) throw error;
+
+        // Create a blob URL and trigger real browser download
+        const blob = data;
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = title;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        toast.success(`Download de ${title} concluído!`);
+      } else {
+        // For static reports, generate a client-side export
+        toast.info(`Gerando relatório: ${title}...`);
+        await generateReportDownload(title);
+      }
+    } catch (err) {
+      console.error('Download error:', err);
+      toast.error(`Erro ao baixar ${title}`);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const generateReportDownload = async (title: string) => {
+    // Generate a simple CSV/text report based on current data
+    let content = '';
+    let filename = '';
+    let mimeType = 'text/plain';
+
+    if (title.includes('Segurança')) {
+      // Monthly security report as CSV
+      filename = `Relatorio_Mensal_Seguranca_${new Date().toISOString().slice(0, 7)}.csv`;
+      mimeType = 'text/csv';
+      content = 'Mês,Incidentes,Treinamentos\n';
+      monthlyData.forEach(m => {
+        content += `${m.name},${m.incidentes},${m.treinamentos}\n`;
+      });
+      content += `\nResumo do Mês Atual\n`;
+      content += `Incidentes,${kpis.incidentes}\n`;
+      content += `Treinamentos,${kpis.treinamentos}\n`;
+      content += `DDS Realizados,${kpis.ddsTotal}\n`;
+      content += `Conformidade DDS,${kpis.ddsConformity}%\n`;
+    } else if (title.includes('Acidentes')) {
+      filename = `Indicadores_Acidentes_${new Date().getFullYear()}.csv`;
+      mimeType = 'text/csv';
+      content = 'Mês,Incidentes\n';
+      monthlyData.forEach(m => {
+        content += `${m.name},${m.incidentes}\n`;
+      });
+    } else if (title.includes('Riscos')) {
+      filename = `Mapa_Riscos_${new Date().toISOString().slice(0, 7)}.csv`;
+      mimeType = 'text/csv';
+      content = 'Status EPI,Percentual\n';
+      epiData.forEach(e => {
+        content += `${e.name},${e.value}%\n`;
+      });
+    } else if (title.includes('Certificados')) {
+      filename = `Certificados_Treinamento.csv`;
+      mimeType = 'text/csv';
+      content = 'Tipo,Quantidade\n';
+      content += `Treinamentos Concluídos,${kpis.treinamentos}\n`;
+      content += `DDS Realizados,${kpis.ddsTotal}\n`;
+    } else {
+      filename = `${title.replace(/\s/g, '_')}.txt`;
+      content = `Relatório: ${title}\nGerado em: ${new Date().toLocaleString('pt-BR')}\n`;
+    }
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    toast.success(`Download de ${filename} concluído!`);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploading(true);
-    setTimeout(() => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${Date.now()}_${file.name}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Detect category from file name
+      const nameLower = file.name.toLowerCase();
+      let category = 'Geral';
+      if (nameLower.includes('ppra') || nameLower.includes('seguranca') || nameLower.includes('segurança')) category = 'Segurança';
+      else if (nameLower.includes('pcmso') || nameLower.includes('saude') || nameLower.includes('saúde')) category = 'Saúde';
+      else if (nameLower.includes('laudo') || nameLower.includes('eletric')) category = 'Elétrica';
+      else if (nameLower.includes('treinamento') || nameLower.includes('certificado')) category = 'Treinamento';
+
+      // Save metadata to documents table
+      const { data: docData, error: dbError } = await supabase
+        .from('documents')
+        .insert({
+          name: file.name,
+          size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+          category,
+          storage_path: filePath,
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
       setDocuments(prev => [{
-        id: Date.now(),
-        name: file.name,
-        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        date: new Date().toLocaleDateString('pt-BR'),
-        category: 'Geral',
+        id: docData.id,
+        name: docData.name,
+        size: docData.size,
+        date: new Date(docData.created_at).toLocaleDateString('pt-BR'),
+        category: docData.category,
+        storage_path: docData.storage_path,
       }, ...prev]);
-      setIsUploading(false);
       toast.success('Documento importado com sucesso!');
-    }, 1500);
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      toast.error(err?.message || 'Erro ao enviar documento.');
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      e.target.value = '';
+    }
   };
 
-  const handleDeleteDocument = () => {
+  const handleDeleteDocument = async () => {
     if (!confirmDeleteDocId) return;
-    setDocuments(prev => prev.filter(doc => doc.id !== confirmDeleteDocId));
-    setConfirmDeleteDocId(null);
-    toast.success('Documento removido.');
+    const doc = documents.find(d => d.id === confirmDeleteDocId);
+    if (!doc) return;
+
+    try {
+      // Delete from storage
+      if (doc.storage_path) {
+        await supabase.storage.from('documents').remove([doc.storage_path]);
+      }
+
+      // Delete from DB
+      const { error } = await supabase.from('documents').delete().eq('id', doc.id);
+      if (error) throw error;
+
+      setDocuments(prev => prev.filter(d => d.id !== confirmDeleteDocId));
+      toast.success('Documento removido.');
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error('Erro ao remover documento.');
+    } finally {
+      setConfirmDeleteDocId(null);
+    }
   };
 
   return (
@@ -329,7 +503,6 @@ export default function RelatoriosPage() {
             {[
               { title: 'Relatório Mensal de Segurança', type: 'PDF', date: 'Mês atual', icon: FileText },
               { title: 'Indicadores de Acidentes', type: 'XLSX', date: 'Ano atual', icon: BarChart3 },
-              { title: 'Mapa de Riscos Atualizado', type: 'PDF', date: 'Trimestre atual', icon: PieChartIcon },
               { title: 'Certificados de Treinamento', type: 'ZIP', date: 'Acumulado', icon: CheckCircle2 },
             ].map((report, i) => (
               <div key={i} className="p-4 rounded-xl border border-slate-100 flex items-center justify-between group hover:border-primary/20 hover:bg-slate-50 transition-all">
@@ -373,8 +546,12 @@ export default function RelatoriosPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handleDownload(doc.name)} className="p-2 text-slate-400 hover:text-primary hover:bg-white rounded-lg transition-all">
-                      <Download size={16} />
+                    <button
+                      onClick={() => handleDownload(doc.name, doc.storage_path)}
+                      disabled={downloadingId === doc.id}
+                      className="p-2 text-slate-400 hover:text-primary hover:bg-white rounded-lg transition-all disabled:opacity-50"
+                    >
+                      {downloadingId === doc.id ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                     </button>
                     <button onClick={() => setConfirmDeleteDocId(doc.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg transition-all">
                       <Trash2 size={16} />
