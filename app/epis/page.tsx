@@ -139,7 +139,7 @@ export default function EPIsPage() {
       if (editingEPI) {
         const { error } = await supabase
           .from('epis')
-          .update({ name: formData.item.trim(), item: formData.item.trim(), user: formData.user.trim(), status, date: formData.date })
+          .update({ item: formData.item.trim(), user: formData.user.trim(), status, date: formData.date })
           .eq('id', editingEPI.id);
 
         if (error) throw error;
@@ -147,7 +147,7 @@ export default function EPIsPage() {
       } else {
         const { error } = await supabase
           .from('epis')
-          .insert([{ name: formData.item.trim(), item: formData.item.trim(), user: formData.user.trim(), status, date: formData.date }]);
+          .insert([{ item: formData.item.trim(), user: formData.user.trim(), status, date: formData.date }]);
 
         if (error) throw error;
         toast.success('EPI registrado com sucesso!');
