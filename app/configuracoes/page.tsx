@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import Image from 'next/image';
 import { Header } from '@/components/Header';
+import { UserAvatar } from '@/components/UserAvatar';
 import { Settings, User, Bell, Shield, Globe, X, Save, Mail, Briefcase } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -163,12 +163,7 @@ export default function ConfiguracoesPage() {
                           userProfile.gender === 'male' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:border-slate-200 bg-white"
                         )}
                       >
-                        <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shadow-inner">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10">
-                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                            <circle cx="12" cy="7" r="4" />
-                          </svg>
-                        </div>
+                        <UserAvatar gender="male" size={72} className="shadow-md border-2 border-blue-200" />
                         <span className={cn("text-xs font-bold uppercase tracking-wider", userProfile.gender === 'male' ? "text-primary" : "text-slate-500")}>Homem</span>
                       </button>
                       <button 
@@ -178,14 +173,7 @@ export default function ConfiguracoesPage() {
                           userProfile.gender === 'female' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:border-slate-200 bg-white"
                         )}
                       >
-                        <div className="w-20 h-20 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 shadow-inner">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10">
-                            <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
-                            <path d="M12 17l0 4" />
-                            <path d="M10 19l4 0" />
-                            <path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
-                          </svg>
-                        </div>
+                        <UserAvatar gender="female" size={72} className="shadow-md border-2 border-pink-200" />
                         <span className={cn("text-xs font-bold uppercase tracking-wider", userProfile.gender === 'female' ? "text-primary" : "text-slate-500")}>Mulher</span>
                       </button>
                     </div>

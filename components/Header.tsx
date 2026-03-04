@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import Image from 'next/image';
 import { Search, Bell, X, Check, Clock, AlertTriangle, LogOut, HardHat } from 'lucide-react';
+import { UserAvatar } from '@/components/UserAvatar';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -244,18 +244,11 @@ export function Header({ title }: { title: string }) {
             <p className="text-sm font-bold text-slate-800">{userProfile.name}</p>
             <p className="text-[10px] lg:text-xs text-slate-500 font-medium">{authEmail || userProfile.role}</p>
           </div>
-          <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-slate-200 overflow-hidden border border-slate-300 relative shrink-0">
-            <Image
-              src={userProfile.gender === 'male'
-                ? 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
-                : 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka'
-              }
-              alt={userProfile.name}
-              fill
-              className="object-cover"
-              referrerPolicy="no-referrer"
-            />
-          </div>
+          <UserAvatar 
+            gender={userProfile.gender === 'female' ? 'female' : 'male'} 
+            size={40}
+            className="w-8 h-8 lg:w-10 lg:h-10 border-2 border-slate-200 shadow-sm"
+          />
           <button
             onClick={handleLogout}
             title="Sair"
