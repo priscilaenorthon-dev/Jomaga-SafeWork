@@ -163,7 +163,7 @@ export default function ConfiguracoesPage() {
                           userProfile.gender === 'male' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:border-slate-200 bg-white"
                         )}
                       >
-                        <UserAvatar gender="male" size={72} className="shadow-md border-2 border-blue-200" />
+                        <UserAvatar gender="male" size={72} className="shadow-lg border-2 border-blue-300" />
                         <span className={cn("text-xs font-bold uppercase tracking-wider", userProfile.gender === 'male' ? "text-primary" : "text-slate-500")}>Homem</span>
                       </button>
                       <button 
@@ -173,7 +173,7 @@ export default function ConfiguracoesPage() {
                           userProfile.gender === 'female' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:border-slate-200 bg-white"
                         )}
                       >
-                        <UserAvatar gender="female" size={72} className="shadow-md border-2 border-pink-200" />
+                        <UserAvatar gender="female" size={72} className="shadow-lg border-2 border-pink-300" />
                         <span className={cn("text-xs font-bold uppercase tracking-wider", userProfile.gender === 'female' ? "text-primary" : "text-slate-500")}>Mulher</span>
                       </button>
                     </div>
