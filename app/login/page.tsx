@@ -147,6 +147,9 @@ export default function LoginPage() {
         <p className="text-center text-white/40 text-xs mt-6">
           © {new Date().getFullYear()} Jomaga SafeWork. Todos os direitos reservados.
         </p>
+        <p className="text-center text-white/30 text-[10px] mt-1.5">
+          Desenvolvido por <span className="text-white/50 font-semibold">Northon</span>
+        </p>
       </motion.div>
     </div>
   );
