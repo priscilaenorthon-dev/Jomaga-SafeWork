@@ -242,7 +242,7 @@ export function Header({ title }: { title: string }) {
         <div className="flex items-center gap-2 lg:gap-3">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold text-slate-800">{userProfile.name}</p>
-            <p className="text-[10px] lg:text-xs text-slate-500 font-medium">{authEmail || userProfile.role}</p>
+            <p className="text-[10px] lg:text-xs text-slate-500 font-medium">{userProfile.role || 'Cargo não definido'}</p>
           </div>
           <UserAvatar 
             gender={userProfile.gender === 'female' ? 'female' : 'male'} 
