@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Shield,
   LayoutDashboard,
   HardHat,
   GraduationCap,
@@ -18,6 +17,7 @@ import {
   X,
   LogOut,
 } from 'lucide-react';
+import { JomagaLogo } from '@/components/JomagaLogo';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/lib/supabase-client';
@@ -58,9 +58,7 @@ const moreSheetItems = [
 const DesktopSidebarContent = ({ pathname }: { pathname: string }) => (
   <div className="flex flex-col h-full bg-[#1A237E] text-white">
     <div className="p-6 flex items-center gap-3">
-      <div className="bg-[#FF9800] rounded-lg p-1.5 flex items-center justify-center">
-        <Shield size={24} className="text-white" />
-      </div>
+      <JomagaLogo size={38} />
       <div>
         <h1 className="text-lg font-bold leading-tight tracking-tight">Jomaga</h1>
         <p className="text-xs text-slate-300 font-medium">Sistema SafeWork</p>
@@ -204,9 +202,7 @@ export function Sidebar() {
               {/* Sheet header */}
               <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
                 <div className="flex items-center gap-2">
-                  <div className="bg-[#FF9800] rounded-lg p-1">
-                    <Shield size={16} className="text-white" />
-                  </div>
+                  <JomagaLogo size={24} />
                   <span className="font-bold text-slate-800">Menu</span>
                 </div>
                 <button

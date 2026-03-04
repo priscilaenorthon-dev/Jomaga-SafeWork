@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Shield, User, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
+import { JomagaLogo } from '@/components/JomagaLogo';
 import { motion } from 'motion/react';
 import { createClient } from '@/lib/supabase-client';
 import { useRouter } from 'next/navigation';
@@ -70,9 +71,7 @@ export default function LoginPage() {
           {/* Header */}
           <div className="bg-gradient-to-r from-[#1A237E] to-[#3949AB] p-8 text-white text-center">
             <div className="flex items-center justify-center mb-4">
-              <div className="bg-[#FF9800] rounded-xl p-3">
-                <Shield size={32} className="text-white" />
-              </div>
+              <JomagaLogo size={56} />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">Jomaga SafeWork</h1>
             <p className="text-white/70 text-sm mt-1">Sistema de Gestão de Segurança</p>
