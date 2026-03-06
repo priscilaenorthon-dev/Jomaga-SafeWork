@@ -270,7 +270,11 @@ export function Sidebar() {
 
               <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
                 <div className="flex items-center gap-2">
-                  <JomagaLogo size={24} />
+                  <img
+                    src={companyLogo || '/icon'}
+                    alt="Logo da empresa"
+                    className="w-6 h-6 object-contain"
+                  />
                   <span className="font-bold text-slate-800">{companyName}</span>
                 </div>
                 <button
