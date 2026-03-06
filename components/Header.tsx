@@ -17,6 +17,32 @@ interface Notification {
   type: 'incident' | 'training' | 'epi';
 }
 
+type UserGender = 'male' | 'female';
+
+interface UserProfile {
+  name: string;
+  role: string;
+  gender: UserGender;
+}
+
+const defaultUserProfile: UserProfile = {
+  name: 'Perfil sem nome',
+  role: 'Técnico de Segurança',
+  gender: 'male',
+};
+
+function normalizeUserProfile(value: any): UserProfile {
+  const rawName = typeof value?.name === 'string' ? value.name.trim() : '';
+  const rawRole = typeof value?.role === 'string' ? value.role.trim() : '';
+  const rawGender = value?.gender === 'female' ? 'female' : 'male';
+
+  return {
+    name: rawName && rawName.toLowerCase() !== 'usuário' ? rawName : defaultUserProfile.name,
+    role: rawRole || defaultUserProfile.role,
+    gender: rawGender,
+  };
+}
+
 export function Header({ title }: { title: string }) {
   const supabase = createClient();
   const router = useRouter();
@@ -25,9 +51,9 @@ export function Header({ title }: { title: string }) {
   const [userProfile, setUserProfile] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jomaga_user_profile');
-      return saved ? JSON.parse(saved) : { name: 'Usuário', role: 'Técnico de Segurança', gender: 'male' };
+      return saved ? normalizeUserProfile(JSON.parse(saved)) : defaultUserProfile;
     }
-    return { name: 'Usuário', role: 'Técnico de Segurança', gender: 'male' };
+    return defaultUserProfile;
   });
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
@@ -35,14 +61,33 @@ export function Header({ title }: { title: string }) {
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) setAuthEmail(user.email);
+      const userEmail = user?.email || null;
+      setAuthEmail(userEmail);
+
+      const authName = typeof user?.user_metadata?.full_name === 'string'
+        ? user.user_metadata.full_name.trim()
+        : '';
+      const fallbackName = authName || (userEmail ? userEmail.split('@')[0] : '');
+
+      if (fallbackName) {
+        setUserProfile((previous) => {
+          const resolved = normalizeUserProfile({
+            ...previous,
+            name: previous.name === defaultUserProfile.name ? fallbackName : previous.name,
+          });
+          localStorage.setItem('jomaga_user_profile', JSON.stringify(resolved));
+          return resolved;
+        });
+      }
     };
     init();
     fetchNotifications();
 
     const handleUpdate = () => {
       const saved = localStorage.getItem('jomaga_user_profile');
-      if (saved) setUserProfile(JSON.parse(saved));
+      if (saved) {
+        setUserProfile(normalizeUserProfile(JSON.parse(saved)));
+      }
     };
     window.addEventListener('user-profile-updated', handleUpdate);
 

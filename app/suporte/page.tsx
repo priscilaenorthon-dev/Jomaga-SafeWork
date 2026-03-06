@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 interface RoadmapItem {
   icon: any;
   title: string;
+  status: 'implemented' | 'partial' | 'planned';
   desc: string;
   details: string;
   benefits: string[];
@@ -35,6 +36,7 @@ const roadmapPhases: RoadmapPhase[] = [
       {
         icon: Bell,
         title: 'Sistema de Alertas e Notificações',
+        status: 'partial',
         desc: 'Alertas automáticos para EPIs vencendo, treinamentos expirando, ASOs e DDS não realizados.',
         details: 'O sistema monitora automaticamente todas as datas de vencimento de EPIs, treinamentos, ASOs e frequência de DDS. Quando um prazo está se aproximando (30, 15 e 7 dias antes), o responsável recebe alertas visuais no painel e opcionalmente por e-mail.',
         benefits: [
@@ -48,6 +50,7 @@ const roadmapPhases: RoadmapPhase[] = [
       {
         icon: FileText,
         title: 'Gestão de ASO',
+        status: 'implemented',
         desc: 'Controle de Atestados de Saúde Ocupacional — admissional, periódico, demissional com upload de PDF.',
         details: 'Módulo completo para gerenciar todos os tipos de ASO exigidos pela NR-7 (PCMSO). Permite cadastrar exames admissionais, periódicos, demissionais, de retorno ao trabalho e de mudança de função. Cada registro inclui médico responsável, CRM, resultado (Apto/Inapto/Apto com restrições) e upload do documento PDF.',
         benefits: [
@@ -61,6 +64,7 @@ const roadmapPhases: RoadmapPhase[] = [
       {
         icon: Shield,
         title: 'Níveis de Acesso (RBAC)',
+        status: 'planned',
         desc: 'Perfis de Admin, Técnico SST, Gestor e Colaborador com permissões diferenciadas.',
         details: 'Sistema de controle de acesso baseado em funções (Role-Based Access Control). Cada usuário recebe um perfil que define exatamente o que pode ver e fazer no sistema. Admin tem acesso total, Técnico SST gerencia dados operacionais, Gestor visualiza relatórios, e Colaborador consulta apenas seus próprios dados.',
         benefits: [
@@ -74,6 +78,7 @@ const roadmapPhases: RoadmapPhase[] = [
       {
         icon: FileText,
         title: 'Relatórios PDF Profissionais',
+        status: 'partial',
         desc: 'Geração de PDFs formatados com logo da empresa — relatório mensal, ficha de EPI, ata de DDS.',
         details: 'Geração automática de documentos PDF com layout profissional, logotipo da empresa, cabeçalho padronizado e formatação adequada para impressão e arquivo. Inclui relatório mensal de SST, ficha individual de EPI por colaborador, ata de DDS com lista de presença, e relatório de investigação de incidente (CAT).',
         benefits: [
@@ -96,6 +101,7 @@ const roadmapPhases: RoadmapPhase[] = [
       {
         icon: ClipboardCheck,
         title: 'Checklists de Inspeção',
+        status: 'planned',
         desc: 'Templates por área (Elétrica, Altura, etc.) com itens Conforme/Não Conforme e plano de ação automático.',
         details: 'Biblioteca de checklists pré-configurados para diferentes tipos de inspeção de segurança (elétrica, trabalho em altura, espaço confinado, caldeiras, etc.). O técnico percorre os itens marcando Conforme, Não Conforme ou N/A. Itens não conformes geram automaticamente um plano de ação com responsável e prazo.',
         benefits: [
@@ -109,6 +115,7 @@ const roadmapPhases: RoadmapPhase[] = [
       {
         icon: Calendar,
         title: 'Calendário de SST',
+        status: 'planned',
         desc: 'Visualização mensal de vencimentos de EPIs, ASOs, treinamentos, DDS e auditorias.',
         details: 'Calendário visual interativo que consolida todos os eventos e prazos de segurança em uma única tela. Cada tipo de evento tem sua cor: vermelho para vencidos, amarelo para próximos 15 dias, verde para em dia. Permite visualização por dia, semana ou mês.',
         benefits: [
@@ -122,6 +129,7 @@ const roadmapPhases: RoadmapPhase[] = [
       {
         icon: BarChart3,
         title: 'Indicadores TF/TG',
+        status: 'planned',
         desc: 'Taxa de Frequência e Gravidade, % DDS realizados, % EPIs e treinamentos em dia.',
         details: 'Painel de indicadores proativos e reativos conforme normas de SST. Taxa de Frequência (TF) = acidentes × 1.000.000 / HHT. Taxa de Gravidade (TG) = dias perdidos × 1.000.000 / HHT. Além de indicadores proativos como % de DDS realizados, % de EPIs dentro da validade e % de colaboradores com treinamentos em dia.',
         benefits: [
@@ -135,6 +143,7 @@ const roadmapPhases: RoadmapPhase[] = [
       {
         icon: Camera,
         title: 'Fotos em Incidentes',
+        status: 'implemented',
         desc: 'Upload de registro fotográfico com antes/depois para investigação de acidentes.',
         details: 'Permite anexar múltiplas fotos a cada registro de incidente. O técnico pode tirar fotos diretamente pelo celular e fazer upload para o sistema. Suporta galeria de imagens com legendas, comparação antes/depois da correção, e compressão automática para economizar espaço.',
         benefits: [
@@ -157,6 +166,7 @@ const roadmapPhases: RoadmapPhase[] = [
       {
         icon: Building2,
         title: 'Multi-Empresa / Multi-Unidade',
+        status: 'planned',
         desc: 'Dados isolados por empresa/unidade. Admin Jomaga vê todas, cliente vê apenas a sua.',
         details: 'Arquitetura multi-tenant que permite gerenciar múltiplas empresas/unidades em uma única instalação do sistema. Cada empresa tem seus dados completamente isolados. O administrador da Jomaga tem visão consolidada de todas as empresas, enquanto cada cliente acessa apenas seus próprios dados.',
         benefits: [
@@ -170,6 +180,7 @@ const roadmapPhases: RoadmapPhase[] = [
       {
         icon: Smartphone,
         title: 'PWA + Modo Offline',
+        status: 'partial',
         desc: 'Instala no celular como app nativo. Funciona sem internet e sincroniza ao reconectar.',
         details: 'Transforma o sistema em Progressive Web App (PWA), permitindo instalação no celular como se fosse um app nativo. Funciona sem internet, armazenando dados localmente e sincronizando automaticamente quando a conexão é restabelecida. Ideal para técnicos que trabalham em campo.',
         benefits: [
@@ -183,6 +194,7 @@ const roadmapPhases: RoadmapPhase[] = [
       {
         icon: Mail,
         title: 'Emails Automáticos de Alerta',
+        status: 'planned',
         desc: 'Disparo automático de e-mails para responsáveis quando prazos estiverem próximos.',
         details: 'Sistema de notificação por e-mail que dispara automaticamente alertas para os responsáveis quando prazos estão se aproximando. Configurável por tipo de alerta e antecedência (30, 15, 7 dias). Inclui template profissional com detalhes do que precisa ser feito.',
         benefits: [
@@ -196,6 +208,7 @@ const roadmapPhases: RoadmapPhase[] = [
       {
         icon: Bot,
         title: 'IA para Sugestão de DDS',
+        status: 'implemented',
         desc: 'Inteligência artificial sugere temas e conteúdo de DDS baseado no histórico e NRs aplicáveis.',
         details: 'Motor de inteligência artificial que analisa o histórico de DDS, incidentes recentes, NRs aplicáveis ao setor e sazonalidade para sugerir temas e elaborar o conteúdo completo do DDS. Evita repetição de temas e prioriza assuntos relevantes ao momento.',
         benefits: [
@@ -213,16 +226,33 @@ const roadmapPhases: RoadmapPhase[] = [
 interface ExtrasItem {
   icon: any;
   title: string;
+  status: 'implemented' | 'partial' | 'planned';
   desc: string;
   details: string;
   benefits: string[];
   example: string;
 }
 
+const statusMeta = {
+  implemented: {
+    label: 'Implementado',
+    badge: 'bg-green-100 text-green-700 border-green-200',
+  },
+  partial: {
+    label: 'Parcial',
+    badge: 'bg-amber-100 text-amber-700 border-amber-200',
+  },
+  planned: {
+    label: 'Planejado',
+    badge: 'bg-slate-100 text-slate-700 border-slate-200',
+  },
+} as const;
+
 const extrasItems: ExtrasItem[] = [
   {
     icon: Users,
     title: 'Auditoria / Log de Alterações',
+    status: 'planned',
     desc: 'Registra quem alterou o quê e quando para compliance.',
     details: 'Registro automático de todas as ações realizadas no sistema: criação, edição e exclusão de registros. Cada log inclui o usuário, data/hora, o que foi alterado e os valores antes/depois. Essencial para auditorias e conformidade legal.',
     benefits: [
@@ -236,6 +266,7 @@ const extrasItems: ExtrasItem[] = [
   {
     icon: Upload,
     title: 'Importação em Massa (Excel)',
+    status: 'planned',
     desc: 'Upload de planilha para cadastrar centenas de colaboradores de uma vez.',
     details: 'Funcionalidade de importação massiva via arquivo Excel (.xlsx). Permite cadastrar centenas de colaboradores, EPIs ou treinamentos de uma só vez. O sistema valida os dados antes de importar e mostra um relatório de erros/sucessos.',
     benefits: [
@@ -249,6 +280,7 @@ const extrasItems: ExtrasItem[] = [
   {
     icon: PenLine,
     title: 'Assinatura Digital',
+    status: 'implemented',
     desc: 'Colaborador assina no celular que recebeu EPI ou participou do DDS.',
     details: 'Sistema de assinatura digital na tela do celular ou tablet. O colaborador assina com o dedo confirmando recebimento de EPI, participação em DDS ou ciência de procedimentos. A assinatura fica vinculada ao registro com data/hora e IP.',
     benefits: [
@@ -262,6 +294,7 @@ const extrasItems: ExtrasItem[] = [
   {
     icon: LayoutDashboard,
     title: 'Dashboard do Cliente',
+    status: 'planned',
     desc: 'Link público read-only para o cliente acompanhar indicadores.',
     details: 'Painel de indicadores acessível por link compartilhável (read-only). O cliente da Jomaga pode acompanhar seus próprios indicadores de segurança em tempo real, sem precisar de login no sistema completo. Inclui gráficos de TF/TG, status de EPIs, treinamentos e DDS.',
     benefits: [
@@ -347,7 +380,7 @@ export default function SuportePage() {
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-white">Atualizações Futuras</h3>
-                      <p className="text-xs text-white/60">Roadmap de funcionalidades planejadas</p>
+                      <p className="text-xs text-white/60">Roadmap com status real: implementado, parcial e planejado</p>
                     </div>
                   </div>
                   <button onClick={() => setShowRoadmap(false)} className="p-2 text-white/60 hover:text-white transition-colors">
@@ -383,6 +416,9 @@ export default function SuportePage() {
                         </div>
                         <div>
                           <h4 className={cn('text-xl font-bold', selectedTextColor)}>{selectedItem.title}</h4>
+                          <span className={cn('inline-flex items-center px-2 py-0.5 mt-1 border rounded-full text-[10px] font-bold uppercase tracking-wide', statusMeta[selectedItem.status].badge)}>
+                            {statusMeta[selectedItem.status].label}
+                          </span>
                           <p className="text-sm text-slate-500 mt-1">{selectedItem.desc}</p>
                         </div>
                       </div>
@@ -454,9 +490,12 @@ export default function SuportePage() {
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-1">
-                                      <p className={cn('text-sm font-bold', phase.textColor)}>{item.title}</p>
+                                          <p className={cn('text-sm font-bold', phase.textColor)}>{item.title}</p>
                                       <ChevronRight size={14} className={cn('shrink-0 opacity-0 group-hover:opacity-100 transition-opacity', phase.textColor)} />
                                     </div>
+                                        <span className={cn('inline-flex items-center px-2 py-0.5 mt-1 border rounded-full text-[9px] font-bold uppercase tracking-wide', statusMeta[item.status].badge)}>
+                                          {statusMeta[item.status].label}
+                                        </span>
                                     <p className="text-[11px] text-slate-500 leading-relaxed mt-1">{item.desc}</p>
                                   </div>
                                 </div>
@@ -488,6 +527,9 @@ export default function SuportePage() {
                                     <p className="text-sm font-bold text-orange-700">{item.title}</p>
                                     <ChevronRight size={14} className="shrink-0 text-orange-700 opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </div>
+                                  <span className={cn('inline-flex items-center px-2 py-0.5 mt-1 border rounded-full text-[9px] font-bold uppercase tracking-wide', statusMeta[item.status].badge)}>
+                                    {statusMeta[item.status].label}
+                                  </span>
                                   <p className="text-[11px] text-slate-500 leading-relaxed mt-1">{item.desc}</p>
                                 </div>
                               </div>

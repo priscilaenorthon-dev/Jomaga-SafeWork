@@ -4,21 +4,26 @@
 
 **Plataforma de Gestão de Segurança do Trabalho**
 
-Sistema completo para gerenciamento de segurança ocupacional — controle de EPIs, registro de incidentes, DDS, treinamentos, colaboradores e relatórios de conformidade.
+Sistema web para gestão de SST com módulos de colaboradores, EPIs, incidentes, DDS, treinamentos, ASO, relatórios e documentos.
 
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
-[![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Auth-3FCF8E?logo=supabase)](https://supabase.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL%20%2B%20Auth-3FCF8E?logo=supabase)](https://supabase.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)](https://www.typescriptlang.org/)
 
 </div>
 
 ---
 
-## 📋 Sobre o Projeto
+## ✅ Ajustes recentes (Mar/2026)
 
-O **Jomaga SafeWork** é uma plataforma web moderna voltada para empresas que precisam gerenciar a segurança do trabalho de forma centralizada e eficiente. O sistema permite o controle completo do ciclo de segurança ocupacional, desde o cadastro de colaboradores até a geração de relatórios e indicadores.
+- **Build Next.js 15 corrigido** na rota dinâmica de assinatura (`params` como `Promise` + `use(params)`).
+- **Impressão DDS reformulada** para formato de ficha/tabular (estilo papel de presença com assinatura).
+- **IA DDS estabilizada** com mensagens claras para chave ausente/inválida e sessão expirada.
+- **Configurações simplificadas**: removido campo duplicado de título técnico em Empresa; mantém apenas **Cargo/Função** no Perfil.
+- **Exibição de usuário ajustada**: fallback “Usuário” removido; sistema prioriza nome do perfil salvo.
+- **Suporte > Atualizações Futuras** agora mostra status real por item: **Implementado / Parcial / Planejado**.
+- **Migrations baseline adicionadas** (schema completo + seed massivo de dados).
 
 ---
 
@@ -26,152 +31,135 @@ O **Jomaga SafeWork** é uma plataforma web moderna voltada para empresas que pr
 
 | Módulo | Descrição |
 |---|---|
-| 📊 **Dashboard** | Visão geral com KPIs, gráficos e indicadores em tempo real |
-| 👷 **Colaboradores** | Cadastro e gestão de colaboradores, cargos e status |
-| 🦺 **EPIs** | Controle de Equipamentos de Proteção Individual — validade, status e atribuição |
-| ⚠️ **Incidentes** | Registro, classificação por severidade e acompanhamento de ocorrências |
-| 📝 **DDS** | Diálogos Diários de Segurança com temas, participantes e histórico |
-| 🎓 **Treinamentos** | Agendamento, controle de participantes e status de capacitações |
-| 📈 **Relatórios** | Gráficos interativos, exportação CSV e repositório de documentos |
-| 📁 **Documentos** | Upload, download e gerenciamento de arquivos (PDF, XLSX, DOCX) via Supabase Storage |
-| 🔐 **Autenticação** | Login seguro com Supabase Auth e controle de sessão via middleware |
-| ⚙️ **Configurações** | Personalização do sistema |
-| 💬 **Suporte** | Canal de suporte integrado |
+| 📊 Dashboard | KPIs e visão resumida de segurança |
+| 👷 Colaboradores | Cadastro, status, assinatura digital e LGPD |
+| 🦺 EPIs | Controle de validade e inventário |
+| ⚠️ Incidentes | Registro, severidade, tipo e evidências |
+| 📝 DDS | Registro, lista de presença, impressão e IA |
+| 🎓 Treinamentos | Gestão de agenda, categoria e status |
+| 🩺 ASO | Controle de exames ocupacionais |
+| 📁 Documentos | Metadados + Storage Supabase |
+| ⚙️ Configurações | Empresa, perfil, idioma e notificações |
+| 💬 Suporte | Canal de ajuda + roadmap com status |
 
 ---
 
-## 🛠️ Stack Tecnológica
+## 🛠️ Stack
 
-- **Framework:** [Next.js 15](https://nextjs.org/) (App Router)
-- **Linguagem:** [TypeScript 5.9](https://www.typescriptlang.org/)
-- **UI:** [React 19](https://react.dev/) + [Tailwind CSS 4](https://tailwindcss.com/)
-- **Banco de Dados:** [Supabase](https://supabase.com/) (PostgreSQL + Auth + Storage)
-- **Gráficos:** [Recharts](https://recharts.org/)
-- **Animações:** [Motion](https://motion.dev/) (Framer Motion)
-- **Ícones:** [Lucide React](https://lucide.dev/)
-- **Notificações:** [Sonner](https://sonner.emilkowal.dev/)
+- Next.js 15 (App Router)
+- React 19 + TypeScript
+- Tailwind CSS 4
+- Supabase (PostgreSQL + Auth + Storage)
+- Motion + Lucide + Sonner
+- Gemini via `@google/genai` na rota `/api/generate-dds`
 
 ---
 
-## 🚀 Como Executar
+## 🚀 Setup local
 
 ### Pré-requisitos
 
-- [Node.js](https://nodejs.org/) 18+
-- Conta no [Supabase](https://supabase.com/) com projeto configurado
+- Node.js 18+
+- Projeto Supabase configurado
 
-### 1. Clone o repositório
+### 1) Clone e instalação
 
 ```bash
 git clone https://github.com/priscilaenorthon-dev/Jomaga-SafeWork.git
 cd Jomaga-SafeWork
-```
-
-### 2. Instale as dependências
-
-```bash
 npm install
 ```
 
-### 3. Configure as variáveis de ambiente
+### 2) Variáveis de ambiente
 
-Crie um arquivo `.env.local` na raiz do projeto:
+Crie `.env.local`:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key
+
+# Use UMA das chaves abaixo (server-side):
 GEMINI_API_KEY=sua-chave-google-ai-studio
-# Alternativa aceita pela API:
 # GOOGLE_AI_STUDIO_API_KEY=sua-chave-google-ai-studio
+# GOOGLE_API_KEY=sua-chave-google-ai-studio
+
+APP_URL=http://localhost:3000
 ```
 
-### 4. Configure o banco de dados
+> Segurança: não use `NEXT_PUBLIC_` para chave de IA.
 
-Execute as migrations no **SQL Editor** do Supabase:
+### 3) Banco de dados
 
-1. `supabase/migrations/20260304000001_clean_schema.sql` — Schema principal (tabelas e RLS)
-2. `supabase/migrations/20260304000002_documents_and_seed.sql` — Tabela de documentos, storage bucket e dados de demonstração
+Você pode seguir dois caminhos:
 
-### 5. Inicie o servidor de desenvolvimento
+#### Opção A — Histórico de migrations (recomendado para evolução)
+
+Aplicar os arquivos existentes em sequência na pasta `supabase/migrations`.
+
+#### Opção B — Baseline completo + seed massivo (ambiente novo)
+
+1. `supabase/migrations/20260306010000_baseline_schema.sql`
+2. `supabase/migrations/20260306010001_baseline_seed_300_plus.sql`
+
+Esse seed gera **320 registros por tabela operacional** (`collaborators`, `incidents`, `epis`, `trainings`, `dds_records`, `documents`, `epi_inventory`, `asos`).
+
+### 4) Rodar o projeto
 
 ```bash
 npm run dev
 ```
 
-Acesse: [http://localhost:3000](http://localhost:3000)
+Acesse `http://localhost:3000`.
 
 ---
 
-## 📂 Estrutura do Projeto
+## ☁️ Vercel (produção)
 
+No projeto da Vercel, configure em `Settings > Environment Variables`:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `GEMINI_API_KEY` (ou `GOOGLE_AI_STUDIO_API_KEY` / `GOOGLE_API_KEY`)
+
+Depois faça `Redeploy`.
+
+---
+
+## 🧱 Estrutura principal
+
+```txt
+app/
+	api/generate-dds/route.ts
+	dds/page.tsx
+	configuracoes/page.tsx
+	suporte/page.tsx
+	assinatura/[token]/page.tsx
+components/
+	Header.tsx
+supabase/
+	migrations/
+		20260304000001_clean_schema.sql
+		20260304000002_documents_and_seed.sql
+		20260306000001_new_features.sql
+		20260306000002_signature_aso_training_seed.sql
+		20260306010000_baseline_schema.sql
+		20260306010001_baseline_seed_300_plus.sql
 ```
-Jomaga-SafeWork/
-├── app/                          # App Router (Next.js 15)
-│   ├── page.tsx                  # Dashboard principal
-│   ├── layout.tsx                # Layout global
-│   ├── login/                    # Página de login
-│   ├── colaboradores/            # Gestão de colaboradores
-│   ├── epis/                     # Controle de EPIs
-│   ├── incidentes/               # Registro de incidentes
-│   ├── dds/                      # Diálogos Diários de Segurança
-│   ├── treinamentos/             # Gestão de treinamentos
-│   ├── relatorios/               # Relatórios e documentos
-│   ├── configuracoes/            # Configurações
-│   ├── suporte/                  # Suporte
-│   └── api/                      # API Routes
-│       └── generate-dds/         # Geração de DDS com IA
-├── components/                   # Componentes reutilizáveis
-│   ├── Header.tsx                # Cabeçalho
-│   └── Sidebar.tsx               # Menu lateral
-├── hooks/                        # Custom hooks
-├── lib/                          # Utilitários e clients
-│   ├── supabase-client.ts        # Client-side Supabase
-│   ├── supabase-server.ts        # Server-side Supabase
-│   ├── supabase-middleware.ts    # Middleware Supabase
-│   └── utils.ts                  # Funções auxiliares
-├── supabase/
-│   └── migrations/               # Migrations SQL
-└── middleware.ts                  # Middleware Next.js (auth)
-```
 
 ---
 
-## 🗄️ Banco de Dados
-
-| Tabela | Descrição |
-|---|---|
-| `profiles` | Perfis de usuários (vinculado ao auth.users) |
-| `collaborators` | Colaboradores da empresa |
-| `incidents` | Registro de incidentes e acidentes |
-| `epis` | Equipamentos de Proteção Individual |
-| `trainings` | Treinamentos e capacitações |
-| `dds_records` | Diálogos Diários de Segurança |
-| `documents` | Metadados de documentos armazenados |
-
-Todas as tabelas possuem **Row Level Security (RLS)** habilitado.
-
----
-
-## 📜 Scripts Disponíveis
+## 📜 Scripts
 
 | Comando | Descrição |
 |---|---|
-| `npm run dev` | Inicia o servidor de desenvolvimento |
-| `npm run build` | Gera o build de produção |
-| `npm run start` | Inicia o servidor de produção |
-| `npm run lint` | Executa o linter (ESLint) |
-| `npm run clean` | Limpa o cache do Next.js |
+| `npm run dev` | Desenvolvimento |
+| `npm run build` | Build de produção |
+| `npm run start` | Servidor de produção |
+| `npm run lint` | ESLint |
+| `npm run clean` | Limpa cache do Next |
 
 ---
 
-## 🤝 Desenvolvido por
+## 🤝 Projeto
 
-**Jomaga SafeWork** — Plataforma desenvolvida para gestão de segurança do trabalho industrial.
-
----
-
-<div align="center">
-
-⭐ Se este projeto foi útil, deixe uma estrela!
-
-</div>
+Jomaga SafeWork — gestão de segurança do trabalho com foco em rastreabilidade, conformidade e operação de campo.

@@ -82,19 +82,58 @@ export default function DDSPage() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState('');
+  const [aiConfigError, setAiConfigError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDDSRecords();
     fetchCollaborators();
-    loadUserProfile();
+    void loadUserProfile();
+
+    const handleProfileUpdate = () => {
+      void loadUserProfile();
+    };
+
+    window.addEventListener('user-profile-updated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('user-profile-updated', handleProfileUpdate);
+    };
   }, []);
 
-  const loadUserProfile = () => {
+  const loadUserProfile = async () => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jomaga_user_profile');
+      let savedProfile: any = null;
+
       if (saved) {
-        const profile = JSON.parse(saved);
-        setTechnicianName(profile.name || '');
+        try {
+          savedProfile = JSON.parse(saved);
+        } catch {
+          savedProfile = null;
+        }
+      }
+
+      if (saved) {
+        const profileName = typeof savedProfile?.name === 'string' ? savedProfile.name.trim() : '';
+        if (profileName && profileName.toLowerCase() !== 'usuário') {
+          setTechnicianName(profileName);
+          return;
+        }
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      const fallbackName =
+        (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '') ||
+        (user?.email ? user.email.split('@')[0] : '');
+
+      if (fallbackName) {
+        setTechnicianName(fallbackName);
+        const mergedProfile = {
+          ...(savedProfile || {}),
+          name: fallbackName,
+          role: (savedProfile?.role || '').trim() || 'Técnico de Segurança',
+          gender: savedProfile?.gender === 'female' ? 'female' : 'male',
+        };
+        localStorage.setItem('jomaga_user_profile', JSON.stringify(mergedProfile));
       }
     }
   };
@@ -345,6 +384,10 @@ export default function DDSPage() {
       toast.error('Preencha todos os campos e selecione ao menos um participante.');
       return;
     }
+    if (!technicianName.trim()) {
+      toast.error('Defina seu nome em Configurações > Perfil do Usuário antes de salvar o DDS.');
+      return;
+    }
     const durationMinutes = parseDurationMinutes(newDuration);
     if (durationMinutes < 15) {
       toast.error('A duração mínima do DDS é de 15 minutos. Corrija o campo de duração.');
@@ -358,7 +401,7 @@ export default function DDSPage() {
           date: new Date().toISOString().split('T')[0],
           theme: newTheme.trim(),
           content: newContent.trim(),
-          technician: technicianName.trim() || 'Técnico',
+          technician: technicianName.trim(),
           participants: selectedParticipants,
           duration: newDuration.trim() || '15 min'
         }]);
@@ -455,6 +498,7 @@ export default function DDSPage() {
     }
 
     setIsGenerating(true);
+    setAiConfigError(null);
     try {
       const response = await fetch('/api/generate-dds', {
         method: 'POST',
@@ -462,12 +506,28 @@ export default function DDSPage() {
         body: JSON.stringify({ prompt: aiPrompt }),
       });
 
+      const payload = await response.json().catch(() => ({} as { error?: string; text?: string }));
+
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Erro desconhecido');
+        const apiMessage = payload?.error || 'Erro desconhecido';
+
+        if (response.status === 401) {
+          if (/sessão expirada/i.test(apiMessage)) {
+            toast.error('Sua sessão expirou. Faça login novamente para usar a IA.');
+          } else {
+            toast.error('Acesso não autorizado para gerar conteúdo com IA.');
+          }
+          return;
+        }
+
+        if ((response.status === 500 || response.status === 401) && /chave|api/i.test(apiMessage)) {
+          setAiConfigError(apiMessage);
+        }
+
+        throw new Error(apiMessage);
       }
 
-      const { text } = await response.json();
+      const text = payload?.text || 'Não foi possível gerar o conteúdo.';
       setGeneratedContent(text);
       setNewTheme(aiPrompt);
       setNewContent(text);
@@ -762,6 +822,14 @@ export default function DDSPage() {
                         Otimize seu tempo. Deixe que nossa IA elabore os pontos principais do seu DDS baseado no tema escolhido.
                       </p>
                     </div>
+
+                    {aiConfigError && (
+                      <div className="rounded-xl border border-amber-300 bg-amber-50 text-amber-900 p-4">
+                        <p className="text-sm font-bold">Configuração de IA pendente</p>
+                        <p className="text-xs mt-1">{aiConfigError}</p>
+                        <p className="text-xs mt-1">Configure a variável no ambiente e publique novamente para habilitar a geração.</p>
+                      </div>
+                    )}
 
                     <div className="flex flex-col sm:flex-row gap-3">
                       <input

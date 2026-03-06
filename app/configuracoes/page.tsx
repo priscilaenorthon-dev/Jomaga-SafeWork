@@ -10,20 +10,45 @@ import { cn } from '@/lib/utils';
 
 type SettingType = 'perfil' | 'notificacoes' | 'seguranca' | 'idioma' | 'empresa' | null;
 
+type UserGender = 'male' | 'female';
+
+interface LocalUserProfile {
+  name: string;
+  email: string;
+  role: string;
+  gender: UserGender;
+}
+
+const defaultUserProfile: LocalUserProfile = {
+  name: 'Perfil sem nome',
+  email: '',
+  role: 'Técnico de Segurança',
+  gender: 'male',
+};
+
+function normalizeUserProfile(value: any): LocalUserProfile {
+  const rawName = typeof value?.name === 'string' ? value.name.trim() : '';
+  const rawEmail = typeof value?.email === 'string' ? value.email.trim() : '';
+  const rawRole = typeof value?.role === 'string' ? value.role.trim() : '';
+  const rawGender = value?.gender === 'female' ? 'female' : 'male';
+
+  return {
+    name: rawName && rawName.toLowerCase() !== 'usuário' ? rawName : defaultUserProfile.name,
+    email: rawEmail,
+    role: rawRole || defaultUserProfile.role,
+    gender: rawGender,
+  };
+}
+
 export default function ConfiguracoesPage() {
   const [activeModal, setActiveModal] = useState<SettingType>(null);
 
   const [userProfile, setUserProfile] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jomaga_user_profile');
-      return saved ? JSON.parse(saved) : {
-        name: 'Carlos Rocha',
-        email: 'carlos.rocha@jomaga.com.br',
-        role: 'Técnico de Segurança',
-        gender: 'male' as 'male' | 'female'
-      };
+      return saved ? normalizeUserProfile(JSON.parse(saved)) : defaultUserProfile;
     }
-    return { name: 'Carlos Rocha', email: 'carlos.rocha@jomaga.com.br', role: 'Técnico de Segurança', gender: 'male' as 'male' | 'female' };
+    return defaultUserProfile;
   });
 
   const [notificationSettings, setNotificationSettings] = useState(() => {
@@ -45,9 +70,13 @@ export default function ConfiguracoesPage() {
   const [companySettings, setCompanySettings] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jomaga_company_settings');
-      return saved ? JSON.parse(saved) : { companyName: 'Jomaga', technicianTitle: 'Técnico de Segurança do Trabalho' };
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { companyName: parsed?.companyName || 'Jomaga' };
+      }
+      return { companyName: 'Jomaga' };
     }
-    return { companyName: 'Jomaga', technicianTitle: 'Técnico de Segurança do Trabalho' };
+    return { companyName: 'Jomaga' };
   });
 
   const handleSave = (type: string) => {
@@ -144,7 +173,7 @@ export default function ConfiguracoesPage() {
                   <div className="space-y-4">
                     <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
                       <p className="text-xs text-blue-700 font-medium">
-                        O nome da empresa aparecerá no menu lateral, nos relatórios e nos documentos gerados pelo sistema. O técnico responsável pode personalizá-lo livremente.
+                        O nome da empresa aparecerá no menu lateral, nos relatórios e nos documentos gerados pelo sistema.
                       </p>
                     </div>
                     <div className="space-y-1.5">
@@ -155,17 +184,6 @@ export default function ConfiguracoesPage() {
                         value={companySettings.companyName}
                         onChange={e => setCompanySettings({ ...companySettings, companyName: e.target.value })}
                         placeholder="Ex: Minha Empresa Ltda"
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
-                        <Briefcase size={14} /> Título do Técnico Responsável
-                      </label>
-                      <input
-                        value={companySettings.technicianTitle}
-                        onChange={e => setCompanySettings({ ...companySettings, technicianTitle: e.target.value })}
-                        placeholder="Ex: Técnico de Segurança do Trabalho"
                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                       />
                     </div>
