@@ -396,7 +396,7 @@ export default function ConfiguracoesPage() {
                 {/* NOTIFICAÇÕES */}
                 {activeModal === 'notificacoes' && (
                   <div className="space-y-4">
-                    {[
+                    {([
                       { id: 'incidentes', label: 'Alertas de Incidentes', desc: 'Receber avisos de novos incidentes reportados' },
                       { id: 'treinamentos', label: 'Vencimento de Treinamentos', desc: 'Avisar quando treinamentos estiverem para vencer' },
                       { id: 'epis', label: 'Controle de EPIs', desc: 'Notificar sobre baixas de estoque ou entregas' },
