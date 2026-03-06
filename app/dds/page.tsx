@@ -175,10 +175,11 @@ export default function DDSPage() {
     .info-value { font-size: 13px; font-weight: bold; color: #1a1a1a; margin-top: 2px; }
     .content-box { background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 24px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
     h2 { font-size: 14px; color: #1A237E; margin-bottom: 12px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
-    .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .sig-item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
-    .sig-name { font-size: 12px; font-weight: bold; margin-bottom: 8px; }
-    .sig-box { border: 1px solid #ddd; border-radius: 4px; min-height: 60px; display: flex; align-items: center; justify-content: center; background: #fafafa; }
+    .participants-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .participant-item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; display: grid; grid-template-columns: 28px 1fr 220px; gap: 10px; align-items: center; }
+    .participant-index { width: 24px; height: 24px; border-radius: 999px; background: #eef2ff; color: #1A237E; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+    .participant-name { font-size: 12px; font-weight: bold; }
+    .sig-box { border: 1px solid #ddd; border-radius: 4px; min-height: 54px; display: flex; align-items: center; justify-content: center; background: #fafafa; }
     @media print { body { margin: 20px; } }
   </style>
 </head>
@@ -193,15 +194,17 @@ export default function DDSPage() {
   <h2>Conteúdo Abordado</h2>
   <div class="content-box">${record.content}</div>
   <h2>Participantes e Assinaturas (${participantsWithSig.length})</h2>
-  <div class="sig-grid">
-    ${participantsWithSig.map(p => `
-    <div class="sig-item">
-      <div class="sig-name">${p.name}</div>
-      <div class="sig-box">
-        ${p.sig ? `<img src="${p.sig}" style="height:56px;display:block;" alt="Assinatura" />` : '<span style="font-size:11px;color:#bbb;">Assinatura pendente</span>'}
-      </div>
-    </div>`).join('')}
-  </div>
+  <ul class="participants-list">
+    ${participantsWithSig.map((p, idx) => `
+      <li class="participant-item">
+        <div class="participant-index">${idx + 1}</div>
+        <div class="participant-name">${p.name}</div>
+        <div class="sig-box">
+          ${p.sig ? `<img src="${p.sig}" style="height:52px;display:block;" alt="Assinatura" />` : '<span style="font-size:11px;color:#bbb;">Assinatura pendente</span>'}
+        </div>
+      </li>
+    `).join('')}
+  </ul>
 </body>
 </html>`);
     printWindow.document.close();

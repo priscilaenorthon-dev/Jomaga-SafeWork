@@ -19,7 +19,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Anchor,
-  Globe
+  Globe,
+  Link2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -37,6 +38,8 @@ interface Collaborator {
   digital_signature?: string;
   lgpd_consent: boolean;
   lgpd_consent_date?: string;
+  signature_invite_token?: string;
+  signature_invite_expires_at?: string;
 }
 
 // Signature Canvas Component
@@ -243,6 +246,31 @@ export default function CollaboratorsPage() {
 
   const confirmDelete = (id: string) => { setCollaboratorToDelete(id); setIsDeleteModalOpen(true); };
 
+  const createSignatureLink = async (collaborator: Collaborator) => {
+    try {
+      const token = `${collaborator.id}-${crypto.randomUUID()}`;
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 72).toISOString();
+
+      const { error } = await supabase
+        .from('collaborators')
+        .update({
+          signature_invite_token: token,
+          signature_invite_expires_at: expiresAt,
+        })
+        .eq('id', collaborator.id);
+
+      if (error) throw error;
+
+      const url = `${window.location.origin}/assinatura/${token}`;
+      await navigator.clipboard.writeText(url);
+      toast.success('Link de assinatura copiado! Válido por 72h.');
+      fetchCollaborators();
+    } catch (error: any) {
+      console.error('Error creating signature link:', error.message);
+      toast.error('Não foi possível gerar o link de assinatura.');
+    }
+  };
+
   const handleDelete = async () => {
     if (collaboratorToDelete) {
       try {
@@ -367,6 +395,13 @@ export default function CollaboratorsPage() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => createSignatureLink(c)}
+                              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                              title="Gerar link de assinatura e acesso"
+                            >
+                              <Link2 size={16} />
+                            </button>
                             <button
                               onClick={() => handleOpenModal(c)}
                               className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
