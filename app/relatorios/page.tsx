@@ -330,7 +330,7 @@ export default function RelatoriosPage() {
     body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; margin: 0; font-size: 12px; }
     .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1A237E; padding-bottom: 10px; margin-bottom: 14px; }
     .brand { display: flex; align-items: center; gap: 10px; }
-    .brand img { width: 38px; height: 38px; border-radius: 8px; object-fit: contain; border: 1px solid #e2e8f0; padding: 2px; }
+    .brand img { width: 38px; height: 38px; object-fit: contain; }
     .title { text-align: right; }
     .title h1 { margin: 0; font-size: 16px; color: #1A237E; }
     .title p { margin: 2px 0 0 0; font-size: 10px; color: #64748b; }

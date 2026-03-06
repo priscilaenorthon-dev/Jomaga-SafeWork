@@ -300,7 +300,7 @@ export default function ConfiguracoesPage() {
                         <img
                           src={companySettings.companyLogo || '/icon'}
                           alt="Logo da empresa"
-                          className="w-14 h-14 rounded-lg object-cover border border-slate-200 bg-white"
+                          className="w-14 h-14 rounded-lg object-contain"
                         />
                         <div className="flex-1 space-y-2">
                           <input

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { User, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
-import { JomagaLogo } from '@/components/JomagaLogo';
 import { motion } from 'motion/react';
 import { createClient } from '@/lib/supabase-client';
 import { useRouter } from 'next/navigation';
@@ -18,6 +17,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [companyName, setCompanyName] = useState('SafeWork');
+  const [companyLogo, setCompanyLogo] = useState('/icon');
 
   useEffect(() => {
     const loadCompanyName = () => {
@@ -25,14 +25,18 @@ export default function LoginPage() {
         const saved = localStorage.getItem('jomaga_company_settings');
         if (!saved) {
           setCompanyName('SafeWork');
+          setCompanyLogo('/icon');
           return;
         }
 
         const parsed = JSON.parse(saved);
         const configuredName = typeof parsed?.companyName === 'string' ? parsed.companyName.trim() : '';
+        const configuredLogo = typeof parsed?.companyLogo === 'string' ? parsed.companyLogo.trim() : '';
         setCompanyName(configuredName || 'SafeWork');
+        setCompanyLogo(configuredLogo || '/icon');
       } catch {
         setCompanyName('SafeWork');
+        setCompanyLogo('/icon');
       }
     };
 
@@ -97,7 +101,11 @@ export default function LoginPage() {
           {/* Header */}
           <div className="bg-gradient-to-r from-[#1A237E] to-[#3949AB] p-8 text-white text-center">
             <div className="flex items-center justify-center mb-4">
-              <JomagaLogo size={56} />
+              <img
+                src={companyLogo || '/icon'}
+                alt="Logo da empresa"
+                className="w-14 h-14 object-contain"
+              />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">{companyName}</h1>
             <p className="text-white/70 text-sm mt-1">Sistema de Gestão de Segurança</p>

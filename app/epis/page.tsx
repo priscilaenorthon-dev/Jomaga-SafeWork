@@ -89,7 +89,7 @@ function FichaEPIModal({ collaboratorName, epis, collaborators, onClose }: {
     h1 { font-size: 18px; color: #1A237E; border-bottom: 2px solid #1A237E; padding-bottom: 8px; margin-bottom: 4px; }
     .company { font-size: 11px; color: #666; margin-bottom: 24px; }
     .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-    .brand img { width: 34px; height: 34px; border-radius: 6px; object-fit: contain; border: 1px solid #d9dbe0; background: #fff; padding: 3px; }
+    .brand img { width: 34px; height: 34px; object-fit: contain; }
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
     .info-item { background: #f8f9fa; padding: 10px; border-radius: 6px; }
     .info-label { font-size: 10px; color: #888; text-transform: uppercase; font-weight: bold; }

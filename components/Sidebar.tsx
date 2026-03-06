@@ -20,7 +20,6 @@ import {
   Package,
   TableProperties,
 } from 'lucide-react';
-import { JomagaLogo } from '@/components/JomagaLogo';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/lib/supabase-client';
@@ -115,10 +114,14 @@ function DesktopMenuItem({ item, pathname }: { item: typeof menuItems[0]; pathna
   );
 }
 
-const DesktopSidebarContent = ({ pathname, companyName }: { pathname: string; companyName: string }) => (
+const DesktopSidebarContent = ({ pathname, companyName, companyLogo }: { pathname: string; companyName: string; companyLogo: string }) => (
   <div className="flex flex-col h-full bg-[#1A237E] text-white">
     <div className="p-6 flex items-center gap-3">
-      <JomagaLogo size={38} />
+      <img
+        src={companyLogo || '/icon'}
+        alt="Logo da empresa"
+        className="w-[38px] h-[38px] object-contain"
+      />
       <div>
         <h1 className="text-lg font-bold leading-tight tracking-tight">{companyName}</h1>
         <p className="text-xs text-slate-300 font-medium">Sistema SafeWork</p>
@@ -153,6 +156,7 @@ export function Sidebar() {
   const supabase = createClient();
   const [showMore, setShowMore] = useState(false);
   const [companyName, setCompanyName] = useState('Jomaga');
+  const [companyLogo, setCompanyLogo] = useState('/icon');
 
   useEffect(() => {
     const loadCompanyName = () => {
@@ -161,6 +165,7 @@ export function Sidebar() {
         try {
           const settings = JSON.parse(saved);
           if (settings.companyName) setCompanyName(settings.companyName);
+          if (settings.companyLogo) setCompanyLogo(settings.companyLogo);
         } catch {}
       }
     };
@@ -182,7 +187,7 @@ export function Sidebar() {
     <>
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-64 shrink-0 h-screen sticky top-0">
-        <DesktopSidebarContent pathname={pathname} companyName={companyName} />
+        <DesktopSidebarContent pathname={pathname} companyName={companyName} companyLogo={companyLogo} />
       </aside>
 
       {/* Mobile Bottom Navigation Bar */}

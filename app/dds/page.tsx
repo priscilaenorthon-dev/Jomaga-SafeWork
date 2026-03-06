@@ -285,10 +285,6 @@ export default function DDSPage() {
       width: 26px;
       height: 26px;
       object-fit: contain;
-      border: 1px solid #b6b6b6;
-      border-radius: 6px;
-      padding: 2px;
-      background: #fff;
     }
     .brand-wrap span {
       font-size: 11px;
