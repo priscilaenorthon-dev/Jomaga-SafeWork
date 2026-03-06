@@ -80,7 +80,9 @@ Crie um arquivo `.env.local` na raiz do projeto:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key
-GEMINI_API_KEY=sua-gemini-api-key
+GEMINI_API_KEY=sua-chave-google-ai-studio
+# Alternativa aceita pela API:
+# GOOGLE_AI_STUDIO_API_KEY=sua-chave-google-ai-studio
 ```
 
 ### 4. Configure o banco de dados

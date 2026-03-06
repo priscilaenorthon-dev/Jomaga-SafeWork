@@ -9,9 +9,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prompt inválido.' }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = (
+      process.env.GEMINI_API_KEY ||
+      process.env.GOOGLE_AI_STUDIO_API_KEY ||
+      process.env.GOOGLE_API_KEY
+    )?.trim();
+
     if (!apiKey) {
-      return NextResponse.json({ error: 'Chave de API não configurada.' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Chave de API não configurada. Defina GEMINI_API_KEY ou GOOGLE_AI_STUDIO_API_KEY nas variáveis de ambiente.' },
+        { status: 500 }
+      );
     }
 
     const ai = new GoogleGenAI({ apiKey });
@@ -22,8 +30,19 @@ export async function POST(request: NextRequest) {
 
     const text = response.text ?? 'Não foi possível gerar o conteúdo.';
     return NextResponse.json({ text });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao gerar conteúdo com IA:', error);
+
+    const message = String(error?.message || '');
+    const isAuthError = /401|403|api key|permission|unauth|invalid/i.test(message);
+
+    if (isAuthError) {
+      return NextResponse.json(
+        { error: 'Chave da IA inválida ou sem permissão. Verifique a chave configurada no ambiente.' },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json({ error: 'Erro ao gerar conteúdo com IA.' }, { status: 500 });
   }
 }
