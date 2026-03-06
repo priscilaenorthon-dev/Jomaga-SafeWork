@@ -30,6 +30,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase-client';
+import { executeMutationWithOfflineQueue } from '@/lib/offline-queue';
 
 interface Training {
   id: string;
@@ -172,15 +173,47 @@ export default function TreinamentosPage() {
         participant_ids: formData.participant_ids || [],
       };
       if (editingTraining) {
-        const { error } = await supabase.from('trainings').update(payload).eq('id', editingTraining.id);
-        if (error) throw error;
-        toast.success('Treinamento atualizado com sucesso!');
+        const result = await executeMutationWithOfflineQueue({
+          supabase,
+          operation: {
+            table: 'trainings',
+            action: 'update',
+            payload,
+            match: { column: 'id', value: editingTraining.id },
+          },
+        });
+
+        if (result.status === 'error') throw result.error;
+        toast.success(
+          result.status === 'queued'
+            ? 'Sem conexão: atualização de treinamento enfileirada para sincronizar depois.'
+            : 'Treinamento atualizado com sucesso!'
+        );
+
+        if (result.status === 'synced') {
+          fetchTrainings();
+        }
       } else {
-        const { error } = await supabase.from('trainings').insert([payload]);
-        if (error) throw error;
-        toast.success('Treinamento agendado com sucesso!');
+        const result = await executeMutationWithOfflineQueue({
+          supabase,
+          operation: {
+            table: 'trainings',
+            action: 'insert',
+            payload: [payload],
+          },
+        });
+
+        if (result.status === 'error') throw result.error;
+        toast.success(
+          result.status === 'queued'
+            ? 'Sem conexão: treinamento enfileirado para sincronizar depois.'
+            : 'Treinamento agendado com sucesso!'
+        );
+
+        if (result.status === 'synced') {
+          fetchTrainings();
+        }
       }
-      fetchTrainings();
       handleCloseModal();
     } catch (error: any) {
       toast.error('Erro ao salvar treinamento');
@@ -190,10 +223,25 @@ export default function TreinamentosPage() {
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este treinamento?')) {
       try {
-        const { error } = await supabase.from('trainings').delete().eq('id', id);
-        if (error) throw error;
-        toast.success('Treinamento removido.');
-        fetchTrainings();
+        const result = await executeMutationWithOfflineQueue({
+          supabase,
+          operation: {
+            table: 'trainings',
+            action: 'delete',
+            match: { column: 'id', value: id },
+          },
+        });
+
+        if (result.status === 'error') throw result.error;
+        toast.success(
+          result.status === 'queued'
+            ? 'Sem conexão: exclusão de treinamento enfileirada para sincronizar depois.'
+            : 'Treinamento removido.'
+        );
+        setTrainings(prev => prev.filter(training => training.id !== id));
+        if (result.status === 'synced') {
+          fetchTrainings();
+        }
       } catch { toast.error('Erro ao excluir treinamento'); }
     }
   };

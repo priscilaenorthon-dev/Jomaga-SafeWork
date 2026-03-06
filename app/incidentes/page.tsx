@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase-client';
+import { executeMutationWithOfflineQueue } from '@/lib/offline-queue';
 
 interface Incidente {
   id: string;
@@ -146,11 +147,28 @@ export default function GestaoRiscoPage() {
   const handleDelete = async () => {
     if (!confirmDeleteId) return;
     try {
-      const { error } = await supabase.from('incidents').delete().eq('id', confirmDeleteId);
-      if (error) throw error;
-      toast.success('Registro excluído com sucesso!');
+      const result = await executeMutationWithOfflineQueue({
+        supabase,
+        operation: {
+          table: 'incidents',
+          action: 'delete',
+          match: { column: 'id', value: confirmDeleteId },
+        },
+      });
+
+      if (result.status === 'error') throw result.error;
+
+      toast.success(
+        result.status === 'queued'
+          ? 'Sem conexão: exclusão enfileirada para sincronizar depois.'
+          : 'Registro excluído com sucesso!'
+      );
+
+      setIncidentes(prev => prev.filter(item => item.id !== confirmDeleteId));
       setConfirmDeleteId(null);
-      fetchIncidentes();
+      if (result.status === 'synced') {
+        fetchIncidentes();
+      }
     } catch { toast.error('Erro ao excluir registro'); }
   };
 
@@ -172,15 +190,49 @@ export default function GestaoRiscoPage() {
         date: new Date().toISOString().split('T')[0],
       };
       if (editingIncidente) {
-        const { error } = await supabase.from('incidents').update(payload).eq('id', editingIncidente.id);
-        if (error) throw error;
-        toast.success('Registro atualizado com sucesso!');
+        const result = await executeMutationWithOfflineQueue({
+          supabase,
+          operation: {
+            table: 'incidents',
+            action: 'update',
+            payload,
+            match: { column: 'id', value: editingIncidente.id },
+          },
+        });
+
+        if (result.status === 'error') throw result.error;
+        toast.success(
+          result.status === 'queued'
+            ? 'Sem conexão: atualização enfileirada para sincronizar depois.'
+            : 'Registro atualizado com sucesso!'
+        );
+
+        if (result.status === 'synced') {
+          fetchIncidentes();
+        }
       } else {
-        const { error } = await supabase.from('incidents').insert([payload]);
-        if (error) throw error;
-        toast.success(formData.type === 'acidente' ? 'Acidente registrado!' : 'Incidente reportado!');
+        const result = await executeMutationWithOfflineQueue({
+          supabase,
+          operation: {
+            table: 'incidents',
+            action: 'insert',
+            payload: [payload],
+          },
+        });
+
+        if (result.status === 'error') throw result.error;
+        toast.success(
+          result.status === 'queued'
+            ? 'Sem conexão: registro enfileirado para sincronizar depois.'
+            : formData.type === 'acidente'
+              ? 'Acidente registrado!'
+              : 'Incidente reportado!'
+        );
+
+        if (result.status === 'synced') {
+          fetchIncidentes();
+        }
       }
-      fetchIncidentes();
       setIsModalOpen(false);
       setFormData({ title: '', area: '', severity: 'Baixa', description: '', status: 'Aberto', type: 'incidente', photos: [] });
     } catch { toast.error('Erro ao salvar registro'); }

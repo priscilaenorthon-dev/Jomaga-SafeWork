@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase-client';
+import { executeMutationWithOfflineQueue } from '@/lib/offline-queue';
 
 interface EPI {
   id: string;
@@ -325,15 +326,47 @@ export default function EPIsPage() {
     const status = calcStatus(formData.date);
     try {
       if (editingEPI) {
-        const { error } = await supabase.from('epis').update({ item: formData.item.trim(), user: formData.user.trim(), status, date: formData.date }).eq('id', editingEPI.id);
-        if (error) throw error;
-        toast.success('EPI atualizado com sucesso!');
+        const result = await executeMutationWithOfflineQueue({
+          supabase,
+          operation: {
+            table: 'epis',
+            action: 'update',
+            payload: { item: formData.item.trim(), user: formData.user.trim(), status, date: formData.date },
+            match: { column: 'id', value: editingEPI.id },
+          },
+        });
+
+        if (result.status === 'error') throw result.error;
+        toast.success(
+          result.status === 'queued'
+            ? 'Sem conexão: atualização de EPI enfileirada para sincronizar depois.'
+            : 'EPI atualizado com sucesso!'
+        );
+
+        if (result.status === 'synced') {
+          fetchEPIs();
+        }
       } else {
-        const { error } = await supabase.from('epis').insert([{ item: formData.item.trim(), user: formData.user.trim(), status, date: formData.date }]);
-        if (error) throw error;
-        toast.success('EPI registrado com sucesso!');
+        const result = await executeMutationWithOfflineQueue({
+          supabase,
+          operation: {
+            table: 'epis',
+            action: 'insert',
+            payload: [{ item: formData.item.trim(), user: formData.user.trim(), status, date: formData.date }],
+          },
+        });
+
+        if (result.status === 'error') throw result.error;
+        toast.success(
+          result.status === 'queued'
+            ? 'Sem conexão: cadastro de EPI enfileirado para sincronizar depois.'
+            : 'EPI registrado com sucesso!'
+        );
+
+        if (result.status === 'synced') {
+          fetchEPIs();
+        }
       }
-      fetchEPIs();
       handleCloseModal();
     } catch (error: any) {
       toast.error('Erro ao salvar EPI');
@@ -343,11 +376,28 @@ export default function EPIsPage() {
   const handleDelete = async () => {
     if (!confirmDeleteId) return;
     try {
-      const { error } = await supabase.from('epis').delete().eq('id', confirmDeleteId);
-      if (error) throw error;
-      toast.success('EPI removido do sistema.');
+      const result = await executeMutationWithOfflineQueue({
+        supabase,
+        operation: {
+          table: 'epis',
+          action: 'delete',
+          match: { column: 'id', value: confirmDeleteId },
+        },
+      });
+
+      if (result.status === 'error') throw result.error;
+
+      toast.success(
+        result.status === 'queued'
+          ? 'Sem conexão: exclusão de EPI enfileirada para sincronizar depois.'
+          : 'EPI removido do sistema.'
+      );
+
       setConfirmDeleteId(null);
-      fetchEPIs();
+      setEpis(prev => prev.filter(item => item.id !== confirmDeleteId));
+      if (result.status === 'synced') {
+        fetchEPIs();
+      }
     } catch (error: any) {
       toast.error('Erro ao excluir EPI');
     }

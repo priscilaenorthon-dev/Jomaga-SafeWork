@@ -26,6 +26,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase-client';
+import { executeMutationWithOfflineQueue } from '@/lib/offline-queue';
 
 interface Collaborator {
   id: string;
@@ -228,15 +229,47 @@ export default function CollaboratorsPage() {
       };
 
       if (editingCollaborator) {
-        const { error } = await supabase.from('collaborators').update(payload).eq('id', editingCollaborator.id);
-        if (error) throw error;
-        toast.success('Colaborador atualizado com sucesso!');
+        const result = await executeMutationWithOfflineQueue({
+          supabase,
+          operation: {
+            table: 'collaborators',
+            action: 'update',
+            payload,
+            match: { column: 'id', value: editingCollaborator.id },
+          },
+        });
+
+        if (result.status === 'error') throw result.error;
+        toast.success(
+          result.status === 'queued'
+            ? 'Sem conexão: atualização de colaborador enfileirada para sincronizar depois.'
+            : 'Colaborador atualizado com sucesso!'
+        );
+
+        if (result.status === 'synced') {
+          fetchCollaborators();
+        }
       } else {
-        const { error } = await supabase.from('collaborators').insert([payload]);
-        if (error) throw error;
-        toast.success('Colaborador cadastrado com sucesso!');
+        const result = await executeMutationWithOfflineQueue({
+          supabase,
+          operation: {
+            table: 'collaborators',
+            action: 'insert',
+            payload: [payload],
+          },
+        });
+
+        if (result.status === 'error') throw result.error;
+        toast.success(
+          result.status === 'queued'
+            ? 'Sem conexão: cadastro de colaborador enfileirado para sincronizar depois.'
+            : 'Colaborador cadastrado com sucesso!'
+        );
+
+        if (result.status === 'synced') {
+          fetchCollaborators();
+        }
       }
-      fetchCollaborators();
       handleCloseModal();
     } catch (error: any) {
       console.error('Error saving collaborator:', error.message);
@@ -274,10 +307,27 @@ export default function CollaboratorsPage() {
   const handleDelete = async () => {
     if (collaboratorToDelete) {
       try {
-        const { error } = await supabase.from('collaborators').delete().eq('id', collaboratorToDelete);
-        if (error) throw error;
-        toast.success('Colaborador removido.');
-        fetchCollaborators();
+        const result = await executeMutationWithOfflineQueue({
+          supabase,
+          operation: {
+            table: 'collaborators',
+            action: 'delete',
+            match: { column: 'id', value: collaboratorToDelete },
+          },
+        });
+
+        if (result.status === 'error') throw result.error;
+
+        toast.success(
+          result.status === 'queued'
+            ? 'Sem conexão: exclusão de colaborador enfileirada para sincronizar depois.'
+            : 'Colaborador removido.'
+        );
+
+        setCollaborators(prev => prev.filter(item => item.id !== collaboratorToDelete));
+        if (result.status === 'synced') {
+          fetchCollaborators();
+        }
         setIsDeleteModalOpen(false);
         setCollaboratorToDelete(null);
       } catch (error: any) {

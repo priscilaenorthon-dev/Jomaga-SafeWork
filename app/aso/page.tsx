@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase-client';
+import { executeMutationWithOfflineQueue } from '@/lib/offline-queue';
 
 interface ASO {
   id: string;
@@ -172,25 +173,55 @@ export default function ASOPage() {
       observations: form.observations || null,
     };
     if (editingId) {
-      const { error } = await supabase.from('asos').update(payload).eq('id', editingId);
-      if (error) { toast.error('Erro ao atualizar ASO.'); setSaving(false); return; }
-      toast.success('ASO atualizado!');
+      const result = await executeMutationWithOfflineQueue({
+        supabase,
+        operation: {
+          table: 'asos',
+          action: 'update',
+          payload,
+          match: { column: 'id', value: editingId },
+        },
+      });
+      if (result.status === 'error') { toast.error('Erro ao atualizar ASO.'); setSaving(false); return; }
+      toast.success(result.status === 'queued' ? 'Sem conexão: atualização do ASO enfileirada para sincronizar depois.' : 'ASO atualizado!');
+      if (result.status === 'synced') {
+        fetchData();
+      }
     } else {
-      const { error } = await supabase.from('asos').insert(payload);
-      if (error) { toast.error('Erro ao salvar ASO.'); setSaving(false); return; }
-      toast.success('ASO registrado!');
+      const result = await executeMutationWithOfflineQueue({
+        supabase,
+        operation: {
+          table: 'asos',
+          action: 'insert',
+          payload,
+        },
+      });
+      if (result.status === 'error') { toast.error('Erro ao salvar ASO.'); setSaving(false); return; }
+      toast.success(result.status === 'queued' ? 'Sem conexão: ASO enfileirado para sincronizar depois.' : 'ASO registrado!');
+      if (result.status === 'synced') {
+        fetchData();
+      }
     }
     setSaving(false);
     setShowModal(false);
-    fetchData();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir este ASO?')) return;
-    const { error } = await supabase.from('asos').delete().eq('id', id);
-    if (error) { toast.error('Erro ao excluir.'); return; }
-    toast.success('ASO excluído.');
-    fetchData();
+    const result = await executeMutationWithOfflineQueue({
+      supabase,
+      operation: {
+        table: 'asos',
+        action: 'delete',
+        match: { column: 'id', value: id },
+      },
+    });
+    if (result.status === 'error') { toast.error('Erro ao excluir.'); return; }
+    toast.success(result.status === 'queued' ? 'Sem conexão: exclusão do ASO enfileirada para sincronizar depois.' : 'ASO excluído.');
+    setAsos(prev => prev.filter(item => item.id !== id));
+    if (result.status === 'synced') {
+      fetchData();
+    }
   };
 
   const filtered = asos.filter(a => {

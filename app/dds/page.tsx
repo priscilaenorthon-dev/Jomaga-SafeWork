@@ -27,6 +27,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase-client';
+import { executeMutationWithOfflineQueue } from '@/lib/offline-queue';
 
 interface DDSRecord {
   id: string;
@@ -422,25 +423,37 @@ export default function DDSPage() {
     }
 
     try {
-      const { error } = await supabase
-        .from('dds_records')
-        .insert([{
-          date: new Date().toISOString().split('T')[0],
-          theme: newTheme.trim(),
-          content: newContent.trim(),
-          technician: technicianName.trim(),
-          participants: selectedParticipants,
-          duration: newDuration.trim() || '15 min'
-        }]);
+      const result = await executeMutationWithOfflineQueue({
+        supabase,
+        operation: {
+          table: 'dds_records',
+          action: 'insert',
+          payload: [{
+            date: new Date().toISOString().split('T')[0],
+            theme: newTheme.trim(),
+            content: newContent.trim(),
+            technician: technicianName.trim(),
+            participants: selectedParticipants,
+            duration: newDuration.trim() || '15 min'
+          }],
+        },
+      });
 
-      if (error) throw error;
+      if (result.status === 'error') throw result.error;
 
-      toast.success('DDS registrado com sucesso!');
+      toast.success(
+        result.status === 'queued'
+          ? 'Sem conexão: DDS enfileirado para sincronizar depois.'
+          : 'DDS registrado com sucesso!'
+      );
+
       setNewTheme('');
       setNewContent('');
       setNewDuration('15 min');
       setSelectedParticipants([]);
-      fetchDDSRecords();
+      if (result.status === 'synced') {
+        fetchDDSRecords();
+      }
       setActiveTab('history');
     } catch (error: any) {
       console.error('Error saving DDS:', error.message);
@@ -478,22 +491,34 @@ export default function DDSPage() {
     }
 
     try {
-      const { error } = await supabase
-        .from('dds_records')
-        .update({
-          theme: editForm.theme.trim(),
-          content: editForm.content.trim(),
-          technician: editForm.technician.trim(),
-          participants: editParticipants,
-        })
-        .eq('id', editingRecord.id);
+      const result = await executeMutationWithOfflineQueue({
+        supabase,
+        operation: {
+          table: 'dds_records',
+          action: 'update',
+          payload: {
+            theme: editForm.theme.trim(),
+            content: editForm.content.trim(),
+            technician: editForm.technician.trim(),
+            participants: editParticipants,
+          },
+          match: { column: 'id', value: editingRecord.id },
+        },
+      });
 
-      if (error) throw error;
+      if (result.status === 'error') throw result.error;
 
-      toast.success('Registro atualizado com sucesso!');
+      toast.success(
+        result.status === 'queued'
+          ? 'Sem conexão: atualização do DDS enfileirada para sincronizar depois.'
+          : 'Registro atualizado com sucesso!'
+      );
+
       setIsEditModalOpen(false);
       setEditingRecord(null);
-      fetchDDSRecords();
+      if (result.status === 'synced') {
+        fetchDDSRecords();
+      }
     } catch (error: any) {
       console.error('Error updating DDS:', error.message);
       toast.error('Erro ao atualizar registro');
@@ -502,14 +527,25 @@ export default function DDSPage() {
 
   const deleteRecord = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('dds_records')
-        .delete()
-        .eq('id', id);
+      const result = await executeMutationWithOfflineQueue({
+        supabase,
+        operation: {
+          table: 'dds_records',
+          action: 'delete',
+          match: { column: 'id', value: id },
+        },
+      });
 
-      if (error) throw error;
-      toast.success('Registro removido.');
-      fetchDDSRecords();
+      if (result.status === 'error') throw result.error;
+      toast.success(
+        result.status === 'queued'
+          ? 'Sem conexão: exclusão do DDS enfileirada para sincronizar depois.'
+          : 'Registro removido.'
+      );
+      setRecords(prev => prev.filter(record => record.id !== id));
+      if (result.status === 'synced') {
+        fetchDDSRecords();
+      }
     } catch (error: any) {
       console.error('Error deleting DDS:', error.message);
       toast.error('Erro ao excluir registro');

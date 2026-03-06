@@ -180,16 +180,16 @@ const roadmapPhases: RoadmapPhase[] = [
       {
         icon: Smartphone,
         title: 'PWA + Modo Offline',
-        status: 'partial',
-        desc: 'PWA instalável com cache offline de leitura e fallback dedicado para falta de conexão.',
-        details: 'A aplicação já pode ser instalada como app e mantém cache local para consulta das telas visitadas sem internet. Quando offline, o usuário recebe fallback claro de conectividade. A sincronização avançada bidirecional entra na próxima fase.',
+        status: 'implemented',
+        desc: 'PWA instalável com cache offline resiliente, fallback dedicado e sincronização automática de pendências.',
+        details: 'A aplicação já pode ser instalada como app, mantém cache local de recursos e navegação com fallback offline dedicado, além de fila de mutações para registrar operações sem internet e sincronizar automaticamente ao reconectar.',
         benefits: [
           'Consulta rápida mesmo sem conexão',
           'Experiência de app nativo no celular',
           'Service worker com cache automático de recursos',
-          'Base pronta para fila de sincronização futura',
+          'Sincronização automática das pendências ao reconectar',
         ],
-        example: 'Ex: Técnico abre o sistema em área sem sinal e ainda consulta páginas em cache; ao reconectar, volta ao fluxo normal online.',
+        example: 'Ex: Técnico registra atualização offline no canteiro e, quando o sinal retorna, o app sincroniza as pendências automaticamente.',
       },
       {
         icon: Mail,
@@ -252,9 +252,9 @@ const extrasItems: ExtrasItem[] = [
   {
     icon: Zap,
     title: 'Fila de Sincronização Offline',
-    status: 'planned',
+    status: 'implemented',
     desc: 'Cadastro offline com envio automático de pendências ao reconectar.',
-    details: 'Camada de persistência local para criação/edição sem internet com fila transacional, retry automático e feedback de sincronização por item.',
+    details: 'Camada de persistência local para criação/edição/exclusão sem internet com fila transacional, retry automático e feedback visual de status para pendências.',
     benefits: [
       'Operação de campo sem bloqueio por ausência de rede',
       'Sincronização automática com controle de tentativas',

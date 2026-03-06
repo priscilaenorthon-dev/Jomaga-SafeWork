@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase-client';
+import { executeMutationWithOfflineQueue } from '@/lib/offline-queue';
 
 type SettingType = 'perfil' | 'notificacoes' | 'seguranca' | 'idioma' | 'empresa' | null;
 
@@ -177,33 +178,44 @@ export default function ConfiguracoesPage() {
         localStorage.setItem('jomaga_company_settings', JSON.stringify(companySettings));
         window.dispatchEvent(new Event('company-settings-updated'));
 
-        const { data: { user } } = await supabase.auth.getUser();
         let updatedBy: string | null = null;
+        if (navigator.onLine) {
+          const { data: { user } } = await supabase.auth.getUser();
 
-        if (user?.id) {
-          const { error: profileEnsureError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: user.id,
-              full_name: user.user_metadata?.full_name || null,
-              avatar_url: user.user_metadata?.avatar_url || null,
-            }, { onConflict: 'id' });
+          if (user?.id) {
+            const { error: profileEnsureError } = await supabase
+              .from('profiles')
+              .upsert({
+                id: user.id,
+                full_name: user.user_metadata?.full_name || null,
+                avatar_url: user.user_metadata?.avatar_url || null,
+              }, { onConflict: 'id' });
 
-          if (!profileEnsureError) {
-            updatedBy = user.id;
+            if (!profileEnsureError) {
+              updatedBy = user.id;
+            }
           }
         }
 
-        const { error } = await supabase
-          .from('company_settings')
-          .upsert({
-            id: 1,
-            company_name: companySettings.companyName,
-            logo_url: companySettings.companyLogo,
-            updated_by: updatedBy,
-          }, { onConflict: 'id' });
+        const result = await executeMutationWithOfflineQueue({
+          supabase,
+          operation: {
+            table: 'company_settings',
+            action: 'upsert',
+            payload: {
+              id: 1,
+              company_name: companySettings.companyName,
+              logo_url: companySettings.companyLogo,
+              updated_by: updatedBy,
+            },
+            onConflict: 'id',
+          },
+        });
 
-        if (error) throw error;
+        if (result.status === 'error') throw result.error;
+        if (result.status === 'queued') {
+          toast.success('Sem conexão: configurações da empresa enfileiradas para sincronizar depois.');
+        }
       }
 
       toast.success(`Configurações de ${type} salvas com sucesso!`);

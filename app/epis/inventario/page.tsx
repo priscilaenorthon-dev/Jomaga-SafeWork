@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase-client';
+import { executeMutationWithOfflineQueue } from '@/lib/offline-queue';
 
 interface InventoryItem {
   id: string;
@@ -77,15 +78,47 @@ export default function EPIInventarioPage() {
     try {
       const payload = { epi_name: formData.epi_name.trim(), current_stock: formData.current_stock, minimum_stock: formData.minimum_stock, unit: formData.unit, notes: formData.notes || null };
       if (editingItem) {
-        const { error } = await supabase.from('epi_inventory').update(payload).eq('id', editingItem.id);
-        if (error) throw error;
-        toast.success('Item atualizado!');
+        const result = await executeMutationWithOfflineQueue({
+          supabase,
+          operation: {
+            table: 'epi_inventory',
+            action: 'update',
+            payload,
+            match: { column: 'id', value: editingItem.id },
+          },
+        });
+
+        if (result.status === 'error') throw result.error;
+        toast.success(
+          result.status === 'queued'
+            ? 'Sem conexão: atualização do inventário enfileirada para sincronizar depois.'
+            : 'Item atualizado!'
+        );
+
+        if (result.status === 'synced') {
+          fetchItems();
+        }
       } else {
-        const { error } = await supabase.from('epi_inventory').insert([payload]);
-        if (error) throw error;
-        toast.success('Item adicionado ao inventário!');
+        const result = await executeMutationWithOfflineQueue({
+          supabase,
+          operation: {
+            table: 'epi_inventory',
+            action: 'insert',
+            payload: [payload],
+          },
+        });
+
+        if (result.status === 'error') throw result.error;
+        toast.success(
+          result.status === 'queued'
+            ? 'Sem conexão: cadastro no inventário enfileirado para sincronizar depois.'
+            : 'Item adicionado ao inventário!'
+        );
+
+        if (result.status === 'synced') {
+          fetchItems();
+        }
       }
-      fetchItems();
       setIsModalOpen(false);
       setEditingItem(null);
     } catch (error: any) {
@@ -96,11 +129,28 @@ export default function EPIInventarioPage() {
   const handleDelete = async () => {
     if (!confirmDeleteId) return;
     try {
-      const { error } = await supabase.from('epi_inventory').delete().eq('id', confirmDeleteId);
-      if (error) throw error;
-      toast.success('Item removido.');
+      const result = await executeMutationWithOfflineQueue({
+        supabase,
+        operation: {
+          table: 'epi_inventory',
+          action: 'delete',
+          match: { column: 'id', value: confirmDeleteId },
+        },
+      });
+
+      if (result.status === 'error') throw result.error;
+
+      toast.success(
+        result.status === 'queued'
+          ? 'Sem conexão: exclusão do inventário enfileirada para sincronizar depois.'
+          : 'Item removido.'
+      );
+
       setConfirmDeleteId(null);
-      fetchItems();
+      setItems(prev => prev.filter(item => item.id !== confirmDeleteId));
+      if (result.status === 'synced') {
+        fetchItems();
+      }
     } catch { toast.error('Erro ao excluir item'); }
   };
 
