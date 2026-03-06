@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, X, Check, Clock, AlertTriangle, LogOut, HardHat } from 'lucide-react';
+import { Search, Bell, Check, Clock, AlertTriangle, LogOut, HardHat, Stethoscope, ClipboardList, Package, FileClock } from 'lucide-react';
 import { UserAvatar } from '@/components/UserAvatar';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -14,7 +14,19 @@ interface Notification {
   title: string;
   desc: string;
   time: string;
-  type: 'incident' | 'training' | 'epi';
+  type: 'incident' | 'training' | 'epi' | 'aso' | 'dds' | 'inventory' | 'report';
+  route: string;
+  severity: 'high' | 'medium' | 'low';
+}
+
+interface NotificationSettings {
+  incidentes: boolean;
+  treinamentos: boolean;
+  epis: boolean;
+  asos: boolean;
+  dds: boolean;
+  inventario: boolean;
+  relatorios: boolean;
 }
 
 type UserGender = 'male' | 'female';
@@ -30,6 +42,27 @@ const defaultUserProfile: UserProfile = {
   role: 'Técnico de Segurança',
   gender: 'male',
 };
+
+const defaultNotificationSettings: NotificationSettings = {
+  incidentes: true,
+  treinamentos: true,
+  epis: false,
+  asos: true,
+  dds: true,
+  inventario: true,
+  relatorios: true,
+};
+
+function loadNotificationSettings(): NotificationSettings {
+  if (typeof window === 'undefined') return defaultNotificationSettings;
+  const saved = localStorage.getItem('jomaga_notification_settings');
+  if (!saved) return defaultNotificationSettings;
+  try {
+    return { ...defaultNotificationSettings, ...JSON.parse(saved) };
+  } catch {
+    return defaultNotificationSettings;
+  }
+}
 
 function normalizeUserProfile(value: any): UserProfile {
   const rawName = typeof value?.name === 'string' ? value.name.trim() : '';
@@ -48,6 +81,7 @@ export function Header({ title }: { title: string }) {
   const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(() => loadNotificationSettings());
   const [userProfile, setUserProfile] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jomaga_user_profile');
@@ -81,7 +115,9 @@ export function Header({ title }: { title: string }) {
       }
     };
     init();
-    fetchNotifications();
+    const initialSettings = loadNotificationSettings();
+    setNotificationSettings(initialSettings);
+    fetchNotifications(initialSettings);
 
     const handleUpdate = () => {
       const saved = localStorage.getItem('jomaga_user_profile');
@@ -90,6 +126,17 @@ export function Header({ title }: { title: string }) {
       }
     };
     window.addEventListener('user-profile-updated', handleUpdate);
+
+    const handleNotificationSettingsUpdate = () => {
+      const loaded = loadNotificationSettings();
+      setNotificationSettings(loaded);
+      fetchNotifications(loaded);
+    };
+    window.addEventListener('notification-settings-updated', handleNotificationSettingsUpdate);
+
+    const interval = window.setInterval(() => {
+      fetchNotifications(loadNotificationSettings());
+    }, 60000);
 
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
@@ -100,11 +147,13 @@ export function Header({ title }: { title: string }) {
 
     return () => {
       window.removeEventListener('user-profile-updated', handleUpdate);
+      window.removeEventListener('notification-settings-updated', handleNotificationSettingsUpdate);
       document.removeEventListener('mousedown', handleClickOutside);
+      window.clearInterval(interval);
     };
   }, []);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (settings: NotificationSettings = notificationSettings) => {
     try {
       const today = new Date();
       const in30Days = new Date(today);
@@ -115,7 +164,10 @@ export function Header({ title }: { title: string }) {
       const [
         { data: expiringEpis },
         { data: openIncidents },
-        { data: pendingTrainings }
+        { data: pendingTrainings },
+        { data: asoAlerts },
+        { data: inventoryItems },
+        { data: latestDds }
       ] = await Promise.all([
         supabase
           .from('epis')
@@ -138,47 +190,153 @@ export function Header({ title }: { title: string }) {
           .gte('date', todayStr)
           .order('date', { ascending: true })
           .limit(3),
+        supabase
+          .from('asos')
+          .select('collaborator_name, next_exam_date')
+          .not('next_exam_date', 'is', null)
+          .lte('next_exam_date', in30DaysStr)
+          .gte('next_exam_date', todayStr)
+          .order('next_exam_date', { ascending: true })
+          .limit(3),
+        supabase
+          .from('epi_inventory')
+          .select('epi_name, current_stock, minimum_stock')
+          .limit(50),
+        supabase
+          .from('dds_records')
+          .select('date, theme')
+          .order('date', { ascending: false })
+          .limit(1),
       ]);
 
       const notifs: Notification[] = [];
 
-      (expiringEpis || []).forEach((epi: any, i: number) => {
-        const expiry = new Date(epi.date + 'T12:00:00');
-        const diffDays = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        notifs.push({
-          id: `epi-${i}`,
-          title: 'EPI próximo do vencimento',
-          desc: `${epi.item} de ${epi.user} — vence em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`,
-          time: expiry.toLocaleDateString('pt-BR'),
-          type: 'epi',
+      if (settings.epis) {
+        (expiringEpis || []).forEach((epi: any, i: number) => {
+          const expiry = new Date(epi.date + 'T12:00:00');
+          const diffDays = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          notifs.push({
+            id: `epi-${i}`,
+            title: 'EPI próximo do vencimento',
+            desc: `${epi.item} de ${epi.user} — vence em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`,
+            time: expiry.toLocaleDateString('pt-BR'),
+            type: 'epi',
+            route: '/epis',
+            severity: diffDays <= 7 ? 'high' : 'medium',
+          });
         });
-      });
+      }
 
-      (openIncidents || []).forEach((inc: any, i: number) => {
-        const created = new Date(inc.created_at);
-        const diffHours = Math.floor((today.getTime() - created.getTime()) / (1000 * 60 * 60));
-        notifs.push({
-          id: `inc-${i}`,
-          title: 'Incidente em aberto',
-          desc: `${inc.title} — ${inc.area}`,
-          time: diffHours < 24 ? `${diffHours}h atrás` : `${Math.floor(diffHours / 24)}d atrás`,
-          type: 'incident',
+      if (settings.incidentes) {
+        (openIncidents || []).forEach((inc: any, i: number) => {
+          const created = new Date(inc.created_at);
+          const diffHours = Math.floor((today.getTime() - created.getTime()) / (1000 * 60 * 60));
+          notifs.push({
+            id: `inc-${i}`,
+            title: 'Incidente em aberto',
+            desc: `${inc.title} — ${inc.area}`,
+            time: diffHours < 24 ? `${diffHours}h atrás` : `${Math.floor(diffHours / 24)}d atrás`,
+            type: 'incident',
+            route: '/incidentes',
+            severity: 'high',
+          });
         });
-      });
+      }
 
-      (pendingTrainings || []).forEach((t: any, i: number) => {
-        const trainingDate = new Date(t.date + 'T12:00:00');
-        const diffDays = Math.ceil((trainingDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        notifs.push({
-          id: `training-${i}`,
-          title: 'Treinamento agendado',
-          desc: `${t.title} — em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`,
-          time: trainingDate.toLocaleDateString('pt-BR'),
-          type: 'training',
+      if (settings.treinamentos) {
+        (pendingTrainings || []).forEach((t: any, i: number) => {
+          const trainingDate = new Date(t.date + 'T12:00:00');
+          const diffDays = Math.ceil((trainingDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          notifs.push({
+            id: `training-${i}`,
+            title: 'Treinamento agendado',
+            desc: `${t.title} — em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`,
+            time: trainingDate.toLocaleDateString('pt-BR'),
+            type: 'training',
+            route: '/treinamentos',
+            severity: diffDays <= 7 ? 'high' : 'medium',
+          });
         });
-      });
+      }
 
-      setNotifications(notifs);
+      if (settings.asos) {
+        (asoAlerts || []).forEach((aso: any, i: number) => {
+          const nextExam = new Date(aso.next_exam_date + 'T12:00:00');
+          const diffDays = Math.ceil((nextExam.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          notifs.push({
+            id: `aso-${i}`,
+            title: 'ASO em alerta',
+            desc: `${aso.collaborator_name} — vence em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`,
+            time: nextExam.toLocaleDateString('pt-BR'),
+            type: 'aso',
+            route: '/aso',
+            severity: diffDays <= 7 ? 'high' : 'medium',
+          });
+        });
+      }
+
+      if (settings.inventario) {
+        (inventoryItems || [])
+          .filter((item: any) => Number(item.current_stock) < Number(item.minimum_stock))
+          .slice(0, 3)
+          .forEach((item: any, i: number) => {
+            notifs.push({
+              id: `inv-${i}`,
+              title: 'Estoque crítico de EPI',
+              desc: `${item.epi_name} — estoque ${item.current_stock}/${item.minimum_stock}`,
+              time: 'Inventário',
+              type: 'inventory',
+              route: '/epis/inventario',
+              severity: 'high',
+            });
+          });
+      }
+
+      if (settings.dds) {
+        const latest = (latestDds || [])[0];
+        if (!latest) {
+          notifs.push({
+            id: 'dds-empty',
+            title: 'DDS sem registros recentes',
+            desc: 'Não há DDS registrado. Programe o próximo diálogo diário.',
+            time: 'Hoje',
+            type: 'dds',
+            route: '/dds',
+            severity: 'medium',
+          });
+        } else {
+          const latestDate = new Date(`${latest.date}T12:00:00`);
+          const diffDays = Math.floor((today.getTime() - latestDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays >= 1) {
+            notifs.push({
+              id: 'dds-delay',
+              title: 'Reforçar agenda de DDS',
+              desc: `Último DDS: ${latest.theme || 'Tema não informado'} (${diffDays} dia${diffDays !== 1 ? 's' : ''} atrás).`,
+              time: latestDate.toLocaleDateString('pt-BR'),
+              type: 'dds',
+              route: '/dds',
+              severity: diffDays >= 2 ? 'high' : 'medium',
+            });
+          }
+        }
+      }
+
+      if (settings.relatorios) {
+        notifs.push({
+          id: 'report-monthly',
+          title: 'Relatório mensal disponível',
+          desc: 'Gere o Relatório Mensal de Segurança em PDF profissional.',
+          time: new Date().toLocaleDateString('pt-BR'),
+          type: 'report',
+          route: '/relatorios',
+          severity: 'low',
+        });
+      }
+
+      const severityOrder = { high: 0, medium: 1, low: 2 };
+      const sorted = notifs.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+      setNotifications(sorted);
     } catch (err) {
       console.error('Error fetching notifications:', err);
     }
@@ -194,12 +352,20 @@ export function Header({ title }: { title: string }) {
     incident: <AlertTriangle size={14} />,
     training: <Clock size={14} />,
     epi: <HardHat size={14} />,
+    aso: <Stethoscope size={14} />,
+    dds: <ClipboardList size={14} />,
+    inventory: <Package size={14} />,
+    report: <FileClock size={14} />,
   };
 
   const colorMap = {
     incident: 'bg-red-100 text-red-600',
     training: 'bg-blue-100 text-blue-600',
     epi: 'bg-orange-100 text-orange-600',
+    aso: 'bg-purple-100 text-purple-700',
+    dds: 'bg-amber-100 text-amber-700',
+    inventory: 'bg-rose-100 text-rose-700',
+    report: 'bg-slate-100 text-slate-600',
   };
 
   return (
@@ -255,6 +421,7 @@ export function Header({ title }: { title: string }) {
                     notifications.map((n) => (
                       <div
                         key={n.id}
+                        onClick={() => { setShowNotifications(false); router.push(n.route); }}
                         className="p-4 border-b border-slate-50 hover:bg-slate-50 cursor-pointer transition-colors"
                       >
                         <div className="flex gap-3">
@@ -272,10 +439,10 @@ export function Header({ title }: { title: string }) {
                   )}
                 </div>
                 <button
-                  onClick={() => { setShowNotifications(false); router.push('/epis'); }}
+                  onClick={() => { setShowNotifications(false); router.push('/relatorios'); }}
                   className="w-full py-3 text-xs font-bold text-slate-500 hover:text-primary transition-colors bg-slate-50 border-t border-slate-100"
                 >
-                  Ver EPIs e alertas →
+                  Ver central de alertas →
                 </button>
               </motion.div>
             )}

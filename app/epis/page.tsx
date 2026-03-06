@@ -64,11 +64,17 @@ function FichaEPIModal({ collaboratorName, epis, collaborators, onClose }: {
   const collaboratorEPIs = epis.filter(e => e.user === collaboratorName);
 
   const handlePrint = () => {
-    const companyName = (() => {
+    const companyBranding = (() => {
       try {
         const s = localStorage.getItem('jomaga_company_settings');
-        return s ? JSON.parse(s).companyName || 'SafeWork' : 'SafeWork';
-      } catch { return 'SafeWork'; }
+        const parsed = s ? JSON.parse(s) : {};
+        return {
+          companyName: parsed?.companyName || 'SafeWork',
+          companyLogo: parsed?.companyLogo || '/icon',
+        };
+      } catch {
+        return { companyName: 'SafeWork', companyLogo: '/icon' };
+      }
     })();
 
     const printWindow = window.open('', '_blank');
@@ -82,6 +88,8 @@ function FichaEPIModal({ collaboratorName, epis, collaborators, onClose }: {
     body { font-family: Arial, sans-serif; margin: 40px; color: #1a1a1a; font-size: 13px; }
     h1 { font-size: 18px; color: #1A237E; border-bottom: 2px solid #1A237E; padding-bottom: 8px; margin-bottom: 4px; }
     .company { font-size: 11px; color: #666; margin-bottom: 24px; }
+    .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .brand img { width: 34px; height: 34px; border-radius: 6px; object-fit: contain; border: 1px solid #d9dbe0; background: #fff; padding: 3px; }
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
     .info-item { background: #f8f9fa; padding: 10px; border-radius: 6px; }
     .info-label { font-size: 10px; color: #888; text-transform: uppercase; font-weight: bold; }
@@ -100,8 +108,12 @@ function FichaEPIModal({ collaboratorName, epis, collaborators, onClose }: {
   </style>
 </head>
 <body>
+  <div class="brand">
+    <img src="${companyBranding.companyLogo}" alt="Logo da empresa" />
+    <strong>${companyBranding.companyName}</strong>
+  </div>
   <h1>Ficha de EPI — ${collaboratorName}</h1>
-  <p class="company">${companyName} — Sistema SafeWork &nbsp;|&nbsp; Emitido em: ${new Date().toLocaleDateString('pt-BR')}</p>
+  <p class="company">${companyBranding.companyName} — Sistema SafeWork &nbsp;|&nbsp; Emitido em: ${new Date().toLocaleDateString('pt-BR')}</p>
   <div class="info-grid">
     <div class="info-item"><div class="info-label">Colaborador</div><div class="info-value">${collaboratorName}</div></div>
     <div class="info-item"><div class="info-label">Matrícula</div><div class="info-value">${collaboratorData?.registration || '—'}</div></div>

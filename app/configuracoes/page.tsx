@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Header } from '@/components/Header';
 import { UserAvatar } from '@/components/UserAvatar';
-import { Settings, User, Bell, Shield, Globe, X, Save, Mail, Briefcase, Building2 } from 'lucide-react';
+import { Settings, User, Bell, Shield, Globe, X, Save, Mail, Briefcase, Building2, ImageUp, RotateCcw, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { createClient } from '@/lib/supabase-client';
 
 type SettingType = 'perfil' | 'notificacoes' | 'seguranca' | 'idioma' | 'empresa' | null;
 
@@ -19,11 +20,41 @@ interface LocalUserProfile {
   gender: UserGender;
 }
 
+interface NotificationSettings {
+  incidentes: boolean;
+  treinamentos: boolean;
+  epis: boolean;
+  asos: boolean;
+  dds: boolean;
+  inventario: boolean;
+  relatorios: boolean;
+}
+
+interface CompanySettings {
+  companyName: string;
+  companyLogo: string;
+}
+
 const defaultUserProfile: LocalUserProfile = {
   name: 'Perfil sem nome',
   email: '',
   role: 'Técnico de Segurança',
   gender: 'male',
+};
+
+const defaultNotificationSettings: NotificationSettings = {
+  incidentes: true,
+  treinamentos: true,
+  epis: false,
+  asos: true,
+  dds: true,
+  inventario: true,
+  relatorios: true,
+};
+
+const defaultCompanySettings: CompanySettings = {
+  companyName: 'Jomaga',
+  companyLogo: '/icon',
 };
 
 function normalizeUserProfile(value: any): LocalUserProfile {
@@ -41,7 +72,9 @@ function normalizeUserProfile(value: any): LocalUserProfile {
 }
 
 export default function ConfiguracoesPage() {
+  const supabase = useMemo(() => createClient(), []);
   const [activeModal, setActiveModal] = useState<SettingType>(null);
+  const [isLogoUploading, setIsLogoUploading] = useState(false);
 
   const [userProfile, setUserProfile] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -51,12 +84,12 @@ export default function ConfiguracoesPage() {
     return defaultUserProfile;
   });
 
-  const [notificationSettings, setNotificationSettings] = useState(() => {
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jomaga_notification_settings');
-      return saved ? JSON.parse(saved) : { incidentes: true, treinamentos: true, epis: false, relatorios: true };
+      return saved ? { ...defaultNotificationSettings, ...JSON.parse(saved) } : defaultNotificationSettings;
     }
-    return { incidentes: true, treinamentos: true, epis: false, relatorios: true };
+    return defaultNotificationSettings;
   });
 
   const [languageSettings, setLanguageSettings] = useState(() => {
@@ -67,32 +100,101 @@ export default function ConfiguracoesPage() {
     return { language: 'pt-BR', timezone: 'GMT-3' };
   });
 
-  const [companySettings, setCompanySettings] = useState(() => {
+  const [companySettings, setCompanySettings] = useState<CompanySettings>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jomaga_company_settings');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return { companyName: parsed?.companyName || 'Jomaga' };
-      }
-      return { companyName: 'Jomaga' };
+      return saved ? { ...defaultCompanySettings, ...JSON.parse(saved) } : defaultCompanySettings;
     }
-    return { companyName: 'Jomaga' };
+    return defaultCompanySettings;
   });
 
-  const handleSave = (type: string) => {
-    if (activeModal === 'perfil') {
-      localStorage.setItem('jomaga_user_profile', JSON.stringify(userProfile));
-      window.dispatchEvent(new Event('user-profile-updated'));
-    } else if (activeModal === 'notificacoes') {
-      localStorage.setItem('jomaga_notification_settings', JSON.stringify(notificationSettings));
-    } else if (activeModal === 'idioma') {
-      localStorage.setItem('jomaga_language_settings', JSON.stringify(languageSettings));
-    } else if (activeModal === 'empresa') {
-      localStorage.setItem('jomaga_company_settings', JSON.stringify(companySettings));
-      window.dispatchEvent(new Event('company-settings-updated'));
+  useEffect(() => {
+    const loadCompanyFromDatabase = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('company_settings')
+          .select('company_name, logo_url')
+          .eq('id', 1)
+          .maybeSingle();
+
+        if (error || !data) return;
+
+        const merged = {
+          companyName: data.company_name || defaultCompanySettings.companyName,
+          companyLogo: data.logo_url || defaultCompanySettings.companyLogo,
+        };
+
+        setCompanySettings(merged);
+        localStorage.setItem('jomaga_company_settings', JSON.stringify(merged));
+        window.dispatchEvent(new Event('company-settings-updated'));
+      } catch {
+        // fallback to local storage already loaded
+      }
+    };
+
+    loadCompanyFromDatabase();
+  }, [supabase]);
+
+  const handleCompanyLogoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsLogoUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `company-logo-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('branding')
+        .upload(path, file, { upsert: true, cacheControl: '3600' });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('branding').getPublicUrl(path);
+      const logoUrl = data.publicUrl;
+
+      setCompanySettings(prev => ({ ...prev, companyLogo: logoUrl }));
+      toast.success('Logo enviada com sucesso!');
+    } catch (error: any) {
+      toast.error(error?.message || 'Não foi possível enviar a logo.');
+    } finally {
+      setIsLogoUploading(false);
+      event.target.value = '';
     }
-    toast.success(`Configurações de ${type} salvas com sucesso!`);
-    setActiveModal(null);
+  };
+
+  const handleSave = async (type: string) => {
+    try {
+      if (activeModal === 'perfil') {
+        localStorage.setItem('jomaga_user_profile', JSON.stringify(userProfile));
+        window.dispatchEvent(new Event('user-profile-updated'));
+      } else if (activeModal === 'notificacoes') {
+        localStorage.setItem('jomaga_notification_settings', JSON.stringify(notificationSettings));
+        window.dispatchEvent(new Event('notification-settings-updated'));
+      } else if (activeModal === 'idioma') {
+        localStorage.setItem('jomaga_language_settings', JSON.stringify(languageSettings));
+      } else if (activeModal === 'empresa') {
+        localStorage.setItem('jomaga_company_settings', JSON.stringify(companySettings));
+        window.dispatchEvent(new Event('company-settings-updated'));
+
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error } = await supabase
+          .from('company_settings')
+          .upsert({
+            id: 1,
+            company_name: companySettings.companyName,
+            logo_url: companySettings.companyLogo,
+            updated_by: user?.id || null,
+          }, { onConflict: 'id' });
+
+        if (error) throw error;
+      }
+
+      toast.success(`Configurações de ${type} salvas com sucesso!`);
+      setActiveModal(null);
+    } catch (error: any) {
+      toast.error(error?.message || 'Não foi possível salvar as configurações.');
+    }
   };
 
   const settingsOptions = [
@@ -176,6 +278,46 @@ export default function ConfiguracoesPage() {
                         O nome da empresa aparecerá no menu lateral, nos relatórios e nos documentos gerados pelo sistema.
                       </p>
                     </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Logo da Empresa</label>
+                      <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                        <img
+                          src={companySettings.companyLogo || '/icon'}
+                          alt="Logo da empresa"
+                          className="w-14 h-14 rounded-lg object-cover border border-slate-200 bg-white"
+                        />
+                        <div className="flex-1 space-y-2">
+                          <input
+                            id="company-logo-input"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleCompanyLogoUpload}
+                            className="hidden"
+                            disabled={isLogoUploading}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              disabled={isLogoUploading}
+                              onClick={() => document.getElementById('company-logo-input')?.click()}
+                              className="px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-100 transition-all flex items-center gap-1.5 disabled:opacity-60"
+                            >
+                              {isLogoUploading ? <Loader2 size={14} className="animate-spin" /> : <ImageUp size={14} />}
+                              {isLogoUploading ? 'Enviando...' : 'Upload'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCompanySettings({ ...companySettings, companyLogo: '/icon' })}
+                              className="px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-100 transition-all flex items-center gap-1.5"
+                            >
+                              <RotateCcw size={14} />
+                              Ícone padrão
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-slate-500">A logo será usada em relatórios e documentos impressos/PDF.</p>
+                        </div>
+                      </div>
+                    </div>
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
                         <Building2 size={14} /> Nome da Empresa
@@ -258,23 +400,26 @@ export default function ConfiguracoesPage() {
                       { id: 'incidentes', label: 'Alertas de Incidentes', desc: 'Receber avisos de novos incidentes reportados' },
                       { id: 'treinamentos', label: 'Vencimento de Treinamentos', desc: 'Avisar quando treinamentos estiverem para vencer' },
                       { id: 'epis', label: 'Controle de EPIs', desc: 'Notificar sobre baixas de estoque ou entregas' },
+                      { id: 'asos', label: 'Controle de ASOs', desc: 'Notificar vencimentos e pendências de ASOs' },
+                      { id: 'dds', label: 'Agenda de DDS', desc: 'Receber lembretes de DDS programados e pendentes' },
+                      { id: 'inventario', label: 'Inventário de EPIs', desc: 'Avisar sobre itens abaixo do estoque mínimo' },
                       { id: 'relatorios', label: 'Relatórios Semanais', desc: 'Receber resumo de indicadores por e-mail' },
-                    ].map((item) => (
+                    ] as const).map((item) => (
                       <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                         <div>
                           <p className="text-sm font-bold text-slate-800">{item.label}</p>
                           <p className="text-[10px] text-slate-500">{item.desc}</p>
                         </div>
                         <button
-                          onClick={() => setNotificationSettings({ ...notificationSettings, [item.id]: !notificationSettings[item.id as keyof typeof notificationSettings] })}
+                          onClick={() => setNotificationSettings({ ...notificationSettings, [item.id]: !notificationSettings[item.id] })}
                           className={cn(
                             "w-10 h-5 rounded-full relative transition-colors duration-200",
-                            notificationSettings[item.id as keyof typeof notificationSettings] ? "bg-primary" : "bg-slate-300"
+                            notificationSettings[item.id] ? "bg-primary" : "bg-slate-300"
                           )}
                         >
                           <div className={cn(
                             "absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200",
-                            notificationSettings[item.id as keyof typeof notificationSettings] ? "left-6" : "left-1"
+                            notificationSettings[item.id] ? "left-6" : "left-1"
                           )} />
                         </button>
                       </div>

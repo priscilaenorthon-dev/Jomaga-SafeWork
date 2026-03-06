@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 import { JomagaLogo } from '@/components/JomagaLogo';
 import { motion } from 'motion/react';
@@ -17,6 +17,32 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [companyName, setCompanyName] = useState('SafeWork');
+
+  useEffect(() => {
+    const loadCompanyName = () => {
+      try {
+        const saved = localStorage.getItem('jomaga_company_settings');
+        if (!saved) {
+          setCompanyName('SafeWork');
+          return;
+        }
+
+        const parsed = JSON.parse(saved);
+        const configuredName = typeof parsed?.companyName === 'string' ? parsed.companyName.trim() : '';
+        setCompanyName(configuredName || 'SafeWork');
+      } catch {
+        setCompanyName('SafeWork');
+      }
+    };
+
+    loadCompanyName();
+    window.addEventListener('company-settings-updated', loadCompanyName);
+
+    return () => {
+      window.removeEventListener('company-settings-updated', loadCompanyName);
+    };
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +99,7 @@ export default function LoginPage() {
             <div className="flex items-center justify-center mb-4">
               <JomagaLogo size={56} />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Jomaga SafeWork</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{companyName}</h1>
             <p className="text-white/70 text-sm mt-1">Sistema de Gestão de Segurança</p>
           </div>
 
@@ -145,7 +171,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-white/40 text-xs mt-6">
-          © {new Date().getFullYear()} Jomaga SafeWork. Todos os direitos reservados.
+          © {new Date().getFullYear()} {companyName}. Todos os direitos reservados.
         </p>
         <p className="text-center text-white/30 text-[10px] mt-1.5">
           Desenvolvido por <span className="text-white/50 font-semibold">Northon</span>

@@ -185,11 +185,17 @@ export default function DDSPage() {
   };
 
   const handlePrintDDS = (record: DDSRecord) => {
-    const companyName = (() => {
+    const companyBranding = (() => {
       try {
         const s = localStorage.getItem('jomaga_company_settings');
-        return s ? JSON.parse(s).companyName || 'SafeWork' : 'SafeWork';
-      } catch { return 'SafeWork'; }
+        const parsed = s ? JSON.parse(s) : {};
+        return {
+          companyName: parsed?.companyName || 'SafeWork',
+          companyLogo: parsed?.companyLogo || '/icon',
+        };
+      } catch {
+        return { companyName: 'SafeWork', companyLogo: '/icon' };
+      }
     })();
 
     const participantsWithSig = (record.participants || []).map(name => {
@@ -268,6 +274,27 @@ export default function DDSPage() {
       letter-spacing: .2px;
       height: 22px;
     }
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 4px;
+    }
+    .brand-wrap img {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+      border: 1px solid #b6b6b6;
+      border-radius: 6px;
+      padding: 2px;
+      background: #fff;
+    }
+    .brand-wrap span {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
     .label {
       font-weight: 700;
       font-size: 10px;
@@ -336,6 +363,10 @@ export default function DDSPage() {
 </head>
 <body>
   <div class="sheet">
+    <div class="brand-wrap">
+      <img src="${escapeHtml(companyBranding.companyLogo)}" alt="Logo" />
+      <span>${escapeHtml(companyBranding.companyName)}</span>
+    </div>
     <table class="meta">
       <tr>
         <th class="title-row" colspan="4">LISTA DE DDS (Diálogo Diário de Segurança)</th>
@@ -370,7 +401,7 @@ export default function DDSPage() {
       </tbody>
     </table>
 
-    <div class="footer-note">${escapeHtml(companyName)} · Emitido em ${new Date().toLocaleDateString('pt-BR')}</div>
+    <div class="footer-note">${escapeHtml(companyBranding.companyName)} · Emitido em ${new Date().toLocaleDateString('pt-BR')}</div>
   </div>
 </body>
 </html>`);

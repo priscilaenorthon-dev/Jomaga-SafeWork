@@ -11,6 +11,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Calendar,
+  Users,
+  Stethoscope,
+  Package,
   Upload,
   Trash2,
   Plus,
@@ -40,6 +43,7 @@ interface MonthlyData {
   name: string;
   incidentes: number;
   treinamentos: number;
+  dds: number;
 }
 
 interface EpiStatus {
@@ -57,13 +61,31 @@ interface Document {
   storage_path: string;
 }
 
+interface CompanyBranding {
+  companyName: string;
+  companyLogo: string;
+}
+
 export default function RelatoriosPage() {
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
+  const [companyBranding, setCompanyBranding] = useState<CompanyBranding>({
+    companyName: 'SafeWork',
+    companyLogo: '/icon',
+  });
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [epiData, setEpiData] = useState<EpiStatus[]>([]);
-  const [kpis, setKpis] = useState({ incidentes: 0, treinamentos: 0, ddsTotal: 0, ddsConformity: 0 });
+  const [kpis, setKpis] = useState({
+    incidentesAbertos: 0,
+    incidentesMes: 0,
+    treinamentosConcluidosMes: 0,
+    ddsTotalMes: 0,
+    ddsConformity: 0,
+    lgpdCoverage: 0,
+    asoAlerts: 0,
+    inventoryCritical: 0,
+  });
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -73,13 +95,39 @@ export default function RelatoriosPage() {
   useEffect(() => {
     fetchReportData();
     fetchDocuments();
+
+    const loadCompanyBranding = () => {
+      try {
+        const saved = localStorage.getItem('jomaga_company_settings');
+        if (!saved) {
+          setCompanyBranding({ companyName: 'SafeWork', companyLogo: '/icon' });
+          return;
+        }
+
+        const parsed = JSON.parse(saved);
+        setCompanyBranding({
+          companyName: parsed?.companyName || 'SafeWork',
+          companyLogo: parsed?.companyLogo || '/icon',
+        });
+      } catch {
+        setCompanyBranding({ companyName: 'SafeWork', companyLogo: '/icon' });
+      }
+    };
+
+    loadCompanyBranding();
+    window.addEventListener('company-settings-updated', loadCompanyBranding);
+
+    return () => {
+      window.removeEventListener('company-settings-updated', loadCompanyBranding);
+    };
   }, []);
 
   const fetchReportData = async () => {
     try {
       setLoading(true);
       const now = new Date();
-      const currentYear = now.getFullYear();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
       const last6Months = Array.from({ length: 6 }, (_, i) => {
         const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
         return { year: d.getFullYear(), month: d.getMonth() + 1, name: MONTH_NAMES[d.getMonth()] };
@@ -90,11 +138,17 @@ export default function RelatoriosPage() {
         { data: allTrainings },
         { data: allEpis },
         { data: allDds },
+        { data: allCollaborators },
+        { data: allAsos },
+        { data: allInventory },
       ] = await Promise.all([
-        supabase.from('incidents').select('created_at').gte('created_at', `${currentYear - 1}-01-01`),
+        supabase.from('incidents').select('created_at, status, photos'),
         supabase.from('trainings').select('date, status'),
-        supabase.from('epis').select('status, date'),
+        supabase.from('epis').select('date'),
         supabase.from('dds_records').select('date, participants'),
+        supabase.from('collaborators').select('status, lgpd_consent'),
+        supabase.from('asos').select('next_exam_date'),
+        supabase.from('epi_inventory').select('current_stock, minimum_stock'),
       ]);
 
       // Monthly chart data
@@ -110,49 +164,69 @@ export default function RelatoriosPage() {
           return d.getFullYear() === year && d.getMonth() + 1 === month;
         }).length;
 
-        return { name, incidentes, treinamentos };
+        const dds = (allDds || []).filter((record: any) => {
+          if (!record.date) return false;
+          const d = new Date(record.date + 'T12:00:00');
+          return d.getFullYear() === year && d.getMonth() + 1 === month;
+        }).length;
+
+        return { name, incidentes, treinamentos, dds };
       });
       setMonthlyData(monthly);
 
-      // EPI status distribution (auto-calculate from dates)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      let ativo = 0, vencendo = 0, expirado = 0;
+      // Operational risk distribution
+      const openIncidents = (allIncidents || []).filter((i: any) => i.status !== 'Fechado').length;
+      const inventoryCritical = (allInventory || []).filter((item: any) => item.current_stock < item.minimum_stock).length;
+
+      const asosWithDate = (allAsos || []).filter((a: any) => !!a.next_exam_date);
+      const asoAlerts = asosWithDate.filter((a: any) => {
+        const next = new Date(a.next_exam_date + 'T00:00:00');
+        const diffDays = Math.ceil((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        return diffDays <= 30;
+      }).length;
+
+      let episExpired = 0;
       (allEpis || []).forEach((e: any) => {
-        if (!e.date) { ativo++; return; }
+        if (!e.date) return;
         const expiry = new Date(e.date + 'T12:00:00');
-        const diff = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        if (diff < 0) expirado++;
-        else if (diff <= 30) vencendo++;
-        else ativo++;
+        if (expiry < today) episExpired++;
       });
-      const totalEpis = ativo + vencendo + expirado;
+
       setEpiData([
-        { name: 'Em Dia', value: totalEpis > 0 ? Math.round((ativo / totalEpis) * 100) : 0, color: '#1A237E' },
-        { name: 'Vencendo', value: totalEpis > 0 ? Math.round((vencendo / totalEpis) * 100) : 0, color: '#FF9800' },
-        { name: 'Expirado', value: totalEpis > 0 ? Math.round((expirado / totalEpis) * 100) : 0, color: '#F44336' },
+        { name: 'Incidentes Abertos', value: openIncidents, color: '#F44336' },
+        { name: 'ASOs em Alerta', value: asoAlerts, color: '#FF9800' },
+        { name: 'EPI Expirado', value: episExpired, color: '#8E24AA' },
+        { name: 'Estoque Crítico', value: inventoryCritical, color: '#1A237E' },
       ]);
 
       // KPIs (current month)
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      const incidentsThisMonth = (allIncidents || []).filter((i: any) => i.created_at >= monthStart).length;
-      const trainingsThisMonth = (allTrainings || []).filter((t: any) => {
+      const monthStartDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      const incidentsThisMonth = (allIncidents || []).filter((i: any) => i.created_at >= `${monthStartDate}T00:00:00`).length;
+      const trainingsCompletedMonth = (allTrainings || []).filter((t: any) => {
         if (!t.date) return false;
-        return t.date >= monthStart.split('T')[0];
+        return t.date >= monthStartDate && t.status === 'Concluído';
       }).length;
 
       const ddsThisMonth = (allDds || []).filter((d: any) => {
         if (!d.date) return false;
-        return d.date >= monthStart.split('T')[0];
+        return d.date >= monthStartDate;
       });
       const ddsWithPart = ddsThisMonth.filter((d: any) => d.participants && d.participants.length > 0).length;
       const conformity = ddsThisMonth.length > 0 ? Math.round((ddsWithPart / ddsThisMonth.length) * 100) : 0;
 
+      const activeCollaborators = (allCollaborators || []).filter((c: any) => c.status === 'Ativo');
+      const lgpdAccepted = activeCollaborators.filter((c: any) => c.lgpd_consent === true).length;
+      const lgpdCoverage = activeCollaborators.length > 0 ? Math.round((lgpdAccepted / activeCollaborators.length) * 100) : 0;
+
       setKpis({
-        incidentes: incidentsThisMonth,
-        treinamentos: trainingsThisMonth,
-        ddsTotal: ddsThisMonth.length,
+        incidentesAbertos: openIncidents,
+        incidentesMes: incidentsThisMonth,
+        treinamentosConcluidosMes: trainingsCompletedMonth,
+        ddsTotalMes: ddsThisMonth.length,
         ddsConformity: conformity,
+        lgpdCoverage,
+        asoAlerts,
+        inventoryCritical,
       });
     } catch (err) {
       console.error('Error fetching report data:', err);
@@ -222,25 +296,17 @@ export default function RelatoriosPage() {
   };
 
   const generateReportDownload = async (title: string) => {
+    if (title.includes('Segurança')) {
+      generateMonthlySecurityPdf();
+      return;
+    }
+
     // Generate a simple CSV/text report based on current data
     let content = '';
     let filename = '';
     let mimeType = 'text/plain';
 
-    if (title.includes('Segurança')) {
-      // Monthly security report as CSV
-      filename = `Relatorio_Mensal_Seguranca_${new Date().toISOString().slice(0, 7)}.csv`;
-      mimeType = 'text/csv';
-      content = 'Mês,Incidentes,Treinamentos\n';
-      monthlyData.forEach(m => {
-        content += `${m.name},${m.incidentes},${m.treinamentos}\n`;
-      });
-      content += `\nResumo do Mês Atual\n`;
-      content += `Incidentes,${kpis.incidentes}\n`;
-      content += `Treinamentos,${kpis.treinamentos}\n`;
-      content += `DDS Realizados,${kpis.ddsTotal}\n`;
-      content += `Conformidade DDS,${kpis.ddsConformity}%\n`;
-    } else if (title.includes('Acidentes')) {
+    if (title.includes('Acidentes')) {
       filename = `Indicadores_Acidentes_${new Date().getFullYear()}.csv`;
       mimeType = 'text/csv';
       content = 'Mês,Incidentes\n';
@@ -250,16 +316,16 @@ export default function RelatoriosPage() {
     } else if (title.includes('Riscos')) {
       filename = `Mapa_Riscos_${new Date().toISOString().slice(0, 7)}.csv`;
       mimeType = 'text/csv';
-      content = 'Status EPI,Percentual\n';
+      content = 'Indicador,Quantidade\n';
       epiData.forEach(e => {
-        content += `${e.name},${e.value}%\n`;
+        content += `${e.name},${e.value}\n`;
       });
     } else if (title.includes('Certificados')) {
       filename = `Certificados_Treinamento.csv`;
       mimeType = 'text/csv';
       content = 'Tipo,Quantidade\n';
-      content += `Treinamentos Concluídos,${kpis.treinamentos}\n`;
-      content += `DDS Realizados,${kpis.ddsTotal}\n`;
+      content += `Treinamentos Concluídos no Mês,${kpis.treinamentosConcluidosMes}\n`;
+      content += `DDS Realizados no Mês,${kpis.ddsTotalMes}\n`;
     } else {
       filename = `${title.replace(/\s/g, '_')}.txt`;
       content = `Relatório: ${title}\nGerado em: ${new Date().toLocaleString('pt-BR')}\n`;
@@ -275,6 +341,136 @@ export default function RelatoriosPage() {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     toast.success(`Download de ${filename} concluído!`);
+  };
+
+  const generateMonthlySecurityPdf = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Não foi possível abrir a janela de impressão.');
+      return;
+    }
+
+    const escapeHtml = (value: string) =>
+      String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const monthRows = monthlyData.map((m) => `
+      <tr>
+        <td>${escapeHtml(m.name)}</td>
+        <td>${m.incidentes}</td>
+        <td>${m.treinamentos}</td>
+        <td>${m.dds}</td>
+      </tr>
+    `).join('');
+
+    const pendingRows = epiData.map((p) => `
+      <tr>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${p.value}</td>
+      </tr>
+    `).join('');
+
+    const now = new Date();
+    const reference = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Relatório Mensal de Segurança</title>
+  <style>
+    @page { size: A4; margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; margin: 0; font-size: 12px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1A237E; padding-bottom: 10px; margin-bottom: 14px; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand img { width: 38px; height: 38px; border-radius: 8px; object-fit: contain; border: 1px solid #e2e8f0; padding: 2px; }
+    .title { text-align: right; }
+    .title h1 { margin: 0; font-size: 16px; color: #1A237E; }
+    .title p { margin: 2px 0 0 0; font-size: 10px; color: #64748b; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+    .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #f8fafc; }
+    .card .k { font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: .3px; }
+    .card .v { font-size: 16px; font-weight: 700; color: #0f172a; margin-top: 4px; }
+    h2 { margin: 16px 0 8px 0; font-size: 12px; color: #1e293b; text-transform: uppercase; letter-spacing: .3px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #dbe1ea; padding: 6px 8px; text-align: left; }
+    th { background: #1A237E; color: #fff; font-size: 10px; text-transform: uppercase; }
+    .footer { margin-top: 14px; border-top: 1px solid #e2e8f0; padding-top: 8px; font-size: 10px; color: #64748b; display: flex; justify-content: space-between; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <img src="${escapeHtml(companyBranding.companyLogo)}" alt="Logo" />
+      <div>
+        <strong>${escapeHtml(companyBranding.companyName)}</strong>
+        <div style="font-size:10px;color:#64748b;">Sistema SafeWork</div>
+      </div>
+    </div>
+    <div class="title">
+      <h1>Relatório Mensal de Segurança</h1>
+      <p>Referência: ${escapeHtml(reference)}</p>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div class="k">Incidentes Abertos</div><div class="v">${kpis.incidentesAbertos}</div></div>
+    <div class="card"><div class="k">Incidentes no Mês</div><div class="v">${kpis.incidentesMes}</div></div>
+    <div class="card"><div class="k">Treinamentos Concluídos</div><div class="v">${kpis.treinamentosConcluidosMes}</div></div>
+    <div class="card"><div class="k">DDS no Mês</div><div class="v">${kpis.ddsTotalMes}</div></div>
+    <div class="card"><div class="k">Conformidade DDS</div><div class="v">${kpis.ddsConformity}%</div></div>
+    <div class="card"><div class="k">Cobertura LGPD</div><div class="v">${kpis.lgpdCoverage}%</div></div>
+    <div class="card"><div class="k">Alertas ASO</div><div class="v">${kpis.asoAlerts}</div></div>
+    <div class="card"><div class="k">Estoque Crítico EPI</div><div class="v">${kpis.inventoryCritical}</div></div>
+  </div>
+
+  <h2>Ritmo Operacional (6 meses)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Mês</th>
+        <th>Incidentes</th>
+        <th>Treinamentos</th>
+        <th>DDS</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${monthRows || '<tr><td colspan="4">Sem dados no período.</td></tr>'}
+    </tbody>
+  </table>
+
+  <h2>Pendências Operacionais</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Indicador</th>
+        <th>Quantidade</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${pendingRows || '<tr><td colspan="2">Sem pendências críticas.</td></tr>'}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <span>${escapeHtml(companyBranding.companyName)} · Relatório gerado automaticamente</span>
+    <span>SafeWork</span>
+  </div>
+</body>
+</html>`);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 400);
+    toast.success('Relatório profissional pronto. Use “Salvar como PDF” na impressão.');
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -364,43 +560,59 @@ export default function RelatoriosPage() {
       <div className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6">
 
         {/* KPIs — real data */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {loading ? (
-            Array.from({ length: 4 }).map((_, i) => (
+            Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm h-28 animate-pulse" />
             ))
           ) : [
             {
-              label: 'Incidentes no Mês',
-              value: kpis.incidentes.toString(),
-              sub: kpis.incidentes === 0 ? 'Mês sem incidentes' : `${kpis.incidentes} reportado${kpis.incidentes !== 1 ? 's' : ''}`,
+              label: 'Incidentes em Aberto',
+              value: kpis.incidentesAbertos.toString(),
+              sub: `${kpis.incidentesMes} registrado${kpis.incidentesMes !== 1 ? 's' : ''} no mês`,
               icon: AlertCircle,
-              color: kpis.incidentes === 0 ? 'text-green-600' : 'text-red-600',
-              bg: kpis.incidentes === 0 ? 'bg-green-50' : 'bg-red-50',
+              color: kpis.incidentesAbertos === 0 ? 'text-green-600' : 'text-red-600',
+              bg: kpis.incidentesAbertos === 0 ? 'bg-green-50' : 'bg-red-50',
             },
             {
-              label: 'Treinamentos no Mês',
-              value: kpis.treinamentos.toString(),
-              sub: 'Agendados ou concluídos',
+              label: 'Treinamentos Concluídos',
+              value: kpis.treinamentosConcluidosMes.toString(),
+              sub: 'Concluídos no mês atual',
               icon: CheckCircle2,
               color: 'text-blue-600',
               bg: 'bg-blue-50',
             },
             {
-              label: 'DDS Realizados',
-              value: kpis.ddsTotal.toString(),
-              sub: 'No mês atual',
+              label: 'Conformidade de DDS',
+              value: kpis.ddsTotalMes > 0 ? `${kpis.ddsConformity}%` : '—',
+              sub: `${kpis.ddsTotalMes} DDS registrados no mês`,
               icon: Calendar,
               color: 'text-orange-600',
               bg: 'bg-orange-50',
             },
             {
-              label: 'Conformidade DDS',
-              value: kpis.ddsTotal > 0 ? `${kpis.ddsConformity}%` : '—',
-              sub: kpis.ddsConformity >= 80 ? 'Na meta' : kpis.ddsTotal > 0 ? 'Abaixo da meta' : 'Sem dados',
-              icon: TrendingUp,
-              color: kpis.ddsConformity >= 80 ? 'text-green-600' : 'text-orange-600',
-              bg: kpis.ddsConformity >= 80 ? 'bg-green-50' : 'bg-orange-50',
+              label: 'Cobertura LGPD',
+              value: `${kpis.lgpdCoverage}%`,
+              sub: 'Colaboradores ativos com consentimento',
+              icon: Users,
+              color: kpis.lgpdCoverage >= 90 ? 'text-green-600' : 'text-orange-600',
+              bg: kpis.lgpdCoverage >= 90 ? 'bg-green-50' : 'bg-orange-50',
+            },
+            {
+              label: 'Alertas de ASO',
+              value: kpis.asoAlerts.toString(),
+              sub: 'Vencidos ou a vencer em até 30 dias',
+              icon: Stethoscope,
+              color: kpis.asoAlerts > 0 ? 'text-red-600' : 'text-green-600',
+              bg: kpis.asoAlerts > 0 ? 'bg-red-50' : 'bg-green-50',
+            },
+            {
+              label: 'Estoque Crítico de EPI',
+              value: kpis.inventoryCritical.toString(),
+              sub: kpis.inventoryCritical > 0 ? 'Itens abaixo do mínimo' : 'Sem alertas de estoque',
+              icon: Package,
+              color: kpis.inventoryCritical > 0 ? 'text-red-600' : 'text-green-600',
+              bg: kpis.inventoryCritical > 0 ? 'bg-red-50' : 'bg-green-50',
             },
           ].map((kpi, i) => (
             <motion.div
@@ -424,12 +636,12 @@ export default function RelatoriosPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Chart: Incidents vs Trainings (real data) */}
+          {/* Chart: Incidents vs Trainings vs DDS */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 <BarChart3 size={18} className="text-primary" />
-                Incidentes vs Treinamentos
+                Ritmo Operacional SST
               </h3>
               <span className="text-xs text-slate-400 font-bold uppercase">Últimos 6 meses</span>
             </div>
@@ -445,6 +657,7 @@ export default function RelatoriosPage() {
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} allowDecimals={false} />
                     <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} cursor={{ fill: '#f8fafc' }} />
+                    <Bar dataKey="dds" fill="#FF9800" radius={[4, 4, 0, 0]} name="DDS" />
                     <Bar dataKey="treinamentos" fill="#1A237E" radius={[4, 4, 0, 0]} name="Treinamentos" />
                     <Bar dataKey="incidentes" fill="#F44336" radius={[4, 4, 0, 0]} name="Incidentes" />
                   </BarChart>
@@ -453,11 +666,11 @@ export default function RelatoriosPage() {
             )}
           </div>
 
-          {/* Chart: EPI Status (real data) */}
+          {/* Chart: Operational pending items */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6">
               <PieChartIcon size={18} className="text-primary" />
-              Status Geral de EPIs
+              Pendências Operacionais
             </h3>
             {loading ? (
               <div className="h-64 flex items-center justify-center">
@@ -466,7 +679,7 @@ export default function RelatoriosPage() {
             ) : epiData.every(e => e.value === 0) ? (
               <div className="h-64 flex flex-col items-center justify-center text-slate-400">
                 <PieChartIcon size={48} className="mb-3 text-slate-200" />
-                <p className="text-sm">Nenhum EPI cadastrado ainda.</p>
+                <p className="text-sm">Sem pendências críticas no momento.</p>
               </div>
             ) : (
               <div className="h-64 w-full flex items-center justify-center">
@@ -477,14 +690,14 @@ export default function RelatoriosPage() {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => `${value}%`} />
+                    <Tooltip formatter={(value) => `${value} item(ns)`} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex flex-col gap-3 ml-4">
                   {epiData.map((item, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                      <span className="text-xs font-bold text-slate-600 whitespace-nowrap">{item.name}: {item.value}%</span>
+                      <span className="text-xs font-bold text-slate-600 whitespace-nowrap">{item.name}: {item.value}</span>
                     </div>
                   ))}
                 </div>
@@ -503,6 +716,7 @@ export default function RelatoriosPage() {
             {[
               { title: 'Relatório Mensal de Segurança', type: 'PDF', date: 'Mês atual', icon: FileText },
               { title: 'Indicadores de Acidentes', type: 'XLSX', date: 'Ano atual', icon: BarChart3 },
+              { title: 'Mapa de Riscos Operacionais', type: 'CSV', date: 'Atualizado', icon: AlertCircle },
               { title: 'Certificados de Treinamento', type: 'ZIP', date: 'Acumulado', icon: CheckCircle2 },
             ].map((report, i) => (
               <div key={i} className="p-4 rounded-xl border border-slate-100 flex items-center justify-between group hover:border-primary/20 hover:bg-slate-50 transition-all">

@@ -24,6 +24,11 @@ Sistema web para gestão de SST com módulos de colaboradores, EPIs, incidentes,
 - **Exibição de usuário ajustada**: fallback “Usuário” removido; sistema prioriza nome do perfil salvo.
 - **Suporte > Atualizações Futuras** agora mostra status real por item: **Implementado / Parcial / Planejado**.
 - **Migrations baseline adicionadas** (schema completo + seed massivo de dados).
+- **Configurações > Empresa com logo**: upload da logo em **Supabase Storage** + persistência em tabela de configuração.
+- **Documentos com identidade visual**: impressão de DDS e Ficha de EPI agora inclui logo e nome da empresa.
+- **Relatório Mensal profissional**: geração com layout executivo (cabeçalho, KPIs, tabelas e branding) pronto para **Salvar como PDF**.
+- **Alertas in-app completos** no Header: incidentes, treinamentos, EPIs, ASOs, DDS, inventário e lembrete de relatório.
+- **PWA offline (leitura)** com Service Worker, cache de navegação e fallback de conexão.
 
 ---
 
@@ -41,6 +46,41 @@ Sistema web para gestão de SST com módulos de colaboradores, EPIs, incidentes,
 | 📁 Documentos | Metadados + Storage Supabase |
 | ⚙️ Configurações | Empresa, perfil, idioma e notificações |
 | 💬 Suporte | Canal de ajuda + roadmap com status |
+
+---
+
+## 🧾 Relatório Mensal em PDF
+
+- Na tela de **Relatórios**, o card **Relatório Mensal de Segurança** abre uma versão profissional pronta para impressão.
+- Para arquivo digital, use **Imprimir → Salvar como PDF**.
+- O documento aplica automaticamente **nome e logo da empresa** definidos em Configurações.
+
+---
+
+## 🔔 Central de notificações (in-app)
+
+O sino do Header consolida alertas de:
+
+- Incidentes em aberto
+- Treinamentos próximos
+- EPIs vencendo
+- ASOs em alerta
+- Agenda de DDS
+- Estoque crítico de inventário
+- Lembrete de relatório mensal
+
+As preferências por tipo são configuradas em **Configurações > Notificações**.
+
+---
+
+## 📱 PWA e Offline
+
+- Manifesto e ícones para instalação em celular.
+- Service Worker registrado automaticamente no App Shell.
+- Cache de navegação e recursos para **consulta offline de leitura**.
+- Fallback dedicado (`offline.html`) quando não houver conexão.
+
+> Escopo atual: leitura offline. Sincronização offline de criação/edição entra em fase futura.
 
 ---
 
@@ -108,6 +148,7 @@ Aplicar os arquivos existentes em sequência na pasta `supabase/migrations`.
 
 1. `supabase/migrations/20260306010000_baseline_schema.sql`
 2. `supabase/migrations/20260306010001_baseline_seed_300_plus.sql`
+3. `supabase/migrations/20260306010002_company_settings_branding.sql`
 
 Esse seed gera **320 registros por tabela operacional** (`collaborators`, `incidents`, `epis`, `trainings`, `dds_records`, `documents`, `epi_inventory`, `asos`).
 

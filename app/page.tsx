@@ -2,17 +2,19 @@
 
 import React from 'react';
 import {
-  HardHat,
+  Users,
   AlertTriangle,
   BarChart3,
-  ClipboardCheck,
-  Thermometer,
-  Droplets,
   UserCheck,
   PlusCircle,
   FileText,
   ChevronRight,
-  TrendingUp
+  TrendingUp,
+  ShieldCheck,
+  Stethoscope,
+  Package,
+  ClipboardCheck,
+  CalendarClock,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -20,6 +22,35 @@ import { Header } from '@/components/Header';
 import Link from 'next/link';
 
 import { createClient } from '@/lib/supabase-client';
+
+interface DashboardStats {
+  activeCollaborators: number;
+  signatureCoverage: number;
+  signedCollaborators: number;
+  lgpdCoverage: number;
+  ddsConformity: number;
+  ddsLast30: number;
+  asoAlerts: number;
+  asoExpired: number;
+  asoExpiring30: number;
+  asoOnTime: number;
+  inventoryCritical: number;
+  openIncidents: number;
+  incidentsLast30: number;
+  incidentsEvidenceCoverage: number;
+  trainingsUpcoming30: number;
+  episExpired: number;
+}
+
+interface DashboardAlert {
+  title: string;
+  time: string;
+  description: string;
+  type: string;
+  status: string;
+  icon: any;
+  iconBg: string;
+}
 
 const StatCard = ({ title, value, change, icon: Icon, iconColor, bgColor, trend, loading }: { 
   title: string, 
@@ -99,55 +130,213 @@ const AlertItem = ({ title, time, description, type, status, icon: Icon, iconBg 
 export default function Dashboard() {
   const supabase = createClient();
   const [loading, setLoading] = React.useState(true);
-  const [stats, setStats] = React.useState({
-    epis: 0,
-    expiringEpis: 0,
-    trainings: 0,
-    incidents: 0,
-    ddsConformity: 98
+  const [stats, setStats] = React.useState<DashboardStats>({
+    activeCollaborators: 0,
+    signatureCoverage: 0,
+    signedCollaborators: 0,
+    lgpdCoverage: 0,
+    ddsConformity: 0,
+    ddsLast30: 0,
+    asoAlerts: 0,
+    asoExpired: 0,
+    asoExpiring30: 0,
+    asoOnTime: 0,
+    inventoryCritical: 0,
+    openIncidents: 0,
+    incidentsLast30: 0,
+    incidentsEvidenceCoverage: 0,
+    trainingsUpcoming30: 0,
+    episExpired: 0,
   });
+  const [alerts, setAlerts] = React.useState<DashboardAlert[]>([]);
 
   React.useEffect(() => {
-    fetchStats();
+    void fetchStats();
   }, []);
 
   const fetchStats = async () => {
     try {
       setLoading(true);
-      
-      // Fetch counts in parallel
+
       const today = new Date();
+      today.setHours(0, 0, 0, 0);
       const thirtyDaysAgo = new Date(today);
       thirtyDaysAgo.setDate(today.getDate() - 30);
+      const thirtyDaysAhead = new Date(today);
+      thirtyDaysAhead.setDate(today.getDate() + 30);
+      const todayStr = today.toISOString().split('T')[0];
       const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+      const thirtyDaysAheadStr = thirtyDaysAhead.toISOString().split('T')[0];
 
       const [
-        { count: episCount },
-        { count: expiringCount },
-        { count: trainingsCount },
-        { count: incidentsCount },
-        { count: ddsTotal },
-        { count: ddsWithParticipants }
+        { data: collaborators },
+        { data: asos },
+        { data: inventory },
+        { data: incidents },
+        { data: trainings },
+        { data: dds },
+        { data: epis },
       ] = await Promise.all([
-        supabase.from('epis').select('*', { count: 'exact', head: true }),
-        supabase.from('epis').select('*', { count: 'exact', head: true }).eq('status', 'Vencendo'),
-        supabase.from('trainings').select('*', { count: 'exact', head: true }).neq('status', 'Concluído'),
-        supabase.from('incidents').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo.toISOString()),
-        supabase.from('dds_records').select('*', { count: 'exact', head: true }).gte('date', thirtyDaysAgoStr),
-        supabase.from('dds_records').select('*', { count: 'exact', head: true }).gte('date', thirtyDaysAgoStr).not('participants', 'eq', '{}')
+        supabase.from('collaborators').select('status, digital_signature, lgpd_consent'),
+        supabase.from('asos').select('next_exam_date'),
+        supabase.from('epi_inventory').select('epi_name, current_stock, minimum_stock'),
+        supabase.from('incidents').select('status, created_at, photos'),
+        supabase.from('trainings').select('date, status'),
+        supabase.from('dds_records').select('date, participants'),
+        supabase.from('epis').select('date'),
       ]);
 
-      const conformity = ddsTotal && ddsTotal > 0
-        ? Math.round(((ddsWithParticipants || 0) / ddsTotal) * 100)
+      const activeCollaborators = (collaborators || []).filter((c: any) => c.status === 'Ativo');
+      const activeCount = activeCollaborators.length;
+      const signedCollaborators = activeCollaborators.filter((c: any) => typeof c.digital_signature === 'string' && c.digital_signature.trim().length > 0).length;
+      const lgpdAccepted = activeCollaborators.filter((c: any) => c.lgpd_consent === true).length;
+
+      const signatureCoverage = activeCount > 0 ? Math.round((signedCollaborators / activeCount) * 100) : 0;
+      const lgpdCoverage = activeCount > 0 ? Math.round((lgpdAccepted / activeCount) * 100) : 0;
+
+      const asoWithDate = (asos || []).filter((a: any) => !!a.next_exam_date);
+      const asoExpired = asoWithDate.filter((a: any) => {
+        const target = new Date(`${a.next_exam_date}T00:00:00`);
+        return target < today;
+      }).length;
+      const asoExpiring30 = asoWithDate.filter((a: any) => {
+        const target = new Date(`${a.next_exam_date}T00:00:00`);
+        return target >= today && target <= thirtyDaysAhead;
+      }).length;
+      const asoAlerts = asoExpired + asoExpiring30;
+      const asoOnTime = asoWithDate.length > 0
+        ? Math.round(((asoWithDate.length - asoExpired) / asoWithDate.length) * 100)
         : 0;
 
-      setStats({
-        epis: episCount || 0,
-        expiringEpis: expiringCount || 0,
-        trainings: trainingsCount || 0,
-        incidents: incidentsCount || 0,
-        ddsConformity: conformity
+      const inventoryCritical = (inventory || []).filter((i: any) => i.current_stock < i.minimum_stock).length;
+
+      const openIncidents = (incidents || []).filter((i: any) => i.status !== 'Fechado').length;
+      const incidentsLast30 = (incidents || []).filter((i: any) => {
+        const created = new Date(i.created_at);
+        return created >= thirtyDaysAgo;
       });
+      const incidentsWithEvidence = incidentsLast30.filter((i: any) => Array.isArray(i.photos) && i.photos.length > 0).length;
+      const incidentsEvidenceCoverage = incidentsLast30.length > 0
+        ? Math.round((incidentsWithEvidence / incidentsLast30.length) * 100)
+        : 0;
+
+      const trainingsUpcoming30 = (trainings || []).filter((t: any) => {
+        if (!t.date || t.status === 'Concluído') return false;
+        return t.date >= todayStr && t.date <= thirtyDaysAheadStr;
+      }).length;
+
+      const ddsLast30 = (dds || []).filter((d: any) => d.date >= thirtyDaysAgoStr);
+      const ddsWithParticipants = ddsLast30.filter((d: any) => Array.isArray(d.participants) && d.participants.length > 0).length;
+      const ddsConformity = ddsLast30.length > 0
+        ? Math.round((ddsWithParticipants / ddsLast30.length) * 100)
+        : 0;
+
+      const episExpired = (epis || []).filter((e: any) => {
+        if (!e.date) return false;
+        const expiry = new Date(`${e.date}T00:00:00`);
+        return expiry < today;
+      }).length;
+
+      setStats({
+        activeCollaborators: activeCount,
+        signatureCoverage,
+        signedCollaborators,
+        lgpdCoverage,
+        ddsConformity,
+        ddsLast30: ddsLast30.length,
+        asoAlerts,
+        asoExpired,
+        asoExpiring30,
+        asoOnTime,
+        inventoryCritical,
+        openIncidents,
+        incidentsLast30: incidentsLast30.length,
+        incidentsEvidenceCoverage,
+        trainingsUpcoming30,
+        episExpired,
+      });
+
+      const nextAlerts: DashboardAlert[] = [];
+      if (inventoryCritical > 0) {
+        nextAlerts.push({
+          title: 'Estoque crítico no inventário de EPIs',
+          time: 'Atualizado agora',
+          description: `${inventoryCritical} item(ns) abaixo do estoque mínimo no inventário de EPIs.`,
+          type: 'Inventário',
+          status: 'Crítico',
+          icon: Package,
+          iconBg: 'bg-red-100 text-red-600',
+        });
+      }
+      if (asoExpired > 0) {
+        nextAlerts.push({
+          title: 'ASOs vencidos exigem ação imediata',
+          time: 'Atualizado agora',
+          description: `${asoExpired} ASO(s) estão vencidos e precisam de regularização.`,
+          type: 'ASO',
+          status: 'Crítico',
+          icon: Stethoscope,
+          iconBg: 'bg-red-100 text-red-600',
+        });
+      }
+      if (asoExpiring30 > 0) {
+        nextAlerts.push({
+          title: 'ASOs próximos do vencimento',
+          time: 'Janela de 30 dias',
+          description: `${asoExpiring30} exame(s) vencerão nos próximos 30 dias.`,
+          type: 'ASO',
+          status: 'Em Andamento',
+          icon: CalendarClock,
+          iconBg: 'bg-orange-100 text-orange-600',
+        });
+      }
+      if (openIncidents > 0) {
+        nextAlerts.push({
+          title: 'Incidentes em aberto',
+          time: 'Últimos 30 dias',
+          description: `${openIncidents} ocorrência(s) ainda sem fechamento.`,
+          type: 'Incidente',
+          status: 'Em Andamento',
+          icon: AlertTriangle,
+          iconBg: 'bg-orange-100 text-orange-600',
+        });
+      }
+      if (episExpired > 0) {
+        nextAlerts.push({
+          title: 'EPIs expirados cadastrados',
+          time: 'Atualizado agora',
+          description: `${episExpired} registro(s) de EPI já expirados.`,
+          type: 'EPI',
+          status: 'Crítico',
+          icon: AlertTriangle,
+          iconBg: 'bg-red-100 text-red-600',
+        });
+      }
+      if (trainingsUpcoming30 > 0) {
+        nextAlerts.push({
+          title: 'Treinamentos próximos no calendário',
+          time: 'Próximos 30 dias',
+          description: `${trainingsUpcoming30} treinamento(s) agendados/em andamento.`,
+          type: 'Treinamento',
+          status: 'Agendado',
+          icon: ClipboardCheck,
+          iconBg: 'bg-blue-100 text-blue-600',
+        });
+      }
+
+      if (nextAlerts.length === 0) {
+        nextAlerts.push({
+          title: 'Sem alertas críticos no momento',
+          time: 'Atualizado agora',
+          description: 'Indicadores operacionais dentro do esperado para os dados registrados.',
+          type: 'Conformidade',
+          status: 'Agendado',
+          icon: ShieldCheck,
+          iconBg: 'bg-green-100 text-green-600',
+        });
+      }
+
+      setAlerts(nextAlerts.slice(0, 4));
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
     } finally {
@@ -160,55 +349,65 @@ export default function Dashboard() {
       <Header title="Visão Geral do Dashboard" />
       <div className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8">
         {/* KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatCard 
-            title="EPIs Ativos" 
-            value={stats.epis} 
-            change="Em uso" 
-            icon={HardHat} 
-            iconColor="text-[#1A237E]" 
-            bgColor="bg-[#1A237E]/10" 
-            trend="success" 
-            loading={loading}
-          />
-          <StatCard 
-            title="Próximos ao Vencimento" 
-            value={stats.expiringEpis} 
-            change="Atenção" 
-            icon={AlertTriangle} 
-            iconColor="text-[#FF9800]" 
-            bgColor="bg-[#FF9800]/10" 
-            trend="warning" 
-            loading={loading}
-          />
-          <StatCard 
-            title="Treinamentos Ativos" 
-            value={stats.trainings} 
-            change="Agendados" 
-            icon={ClipboardCheck} 
-            iconColor="text-blue-500" 
-            bgColor="bg-blue-50" 
-            trend="up" 
-            loading={loading}
-          />
-          <StatCard 
-            title="Incidentes Reportados" 
-            value={stats.incidents} 
-            change="Últimos 30 dias" 
-            icon={AlertTriangle} 
-            iconColor="text-red-500" 
-            bgColor="bg-red-50" 
-            trend="danger" 
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          <StatCard
+            title="Colaboradores Ativos"
+            value={stats.activeCollaborators}
+            change={`${stats.signedCollaborators} com assinatura digital`}
+            icon={Users}
+            iconColor="text-[#1A237E]"
+            bgColor="bg-[#1A237E]/10"
+            trend="success"
             loading={loading}
           />
           <StatCard
-            title="Conformidade DDS"
-            value={stats.ddsConformity > 0 ? `${stats.ddsConformity}%` : '—'}
-            change={stats.ddsConformity >= 80 ? 'Na Meta' : stats.ddsConformity > 0 ? 'Abaixo da Meta' : 'Sem dados'}
+            title="Cobertura de Assinatura"
+            value={stats.activeCollaborators > 0 ? `${stats.signatureCoverage}%` : '—'}
+            change={stats.signatureCoverage >= 90 ? 'Alto engajamento' : 'Abaixo da meta'}
             icon={UserCheck}
-            iconColor="text-green-500"
+            iconColor="text-blue-600"
+            bgColor="bg-blue-50"
+            trend={stats.signatureCoverage >= 90 ? 'success' : 'warning'}
+            loading={loading}
+          />
+          <StatCard
+            title="Conformidade DDS (30d)"
+            value={stats.ddsLast30 > 0 ? `${stats.ddsConformity}%` : '—'}
+            change={stats.ddsLast30 > 0 ? `${stats.ddsLast30} DDS no período` : 'Sem registros'}
+            icon={ClipboardCheck}
+            iconColor="text-green-600"
             bgColor="bg-green-50"
             trend={stats.ddsConformity >= 80 ? 'success' : 'warning'}
+            loading={loading}
+          />
+          <StatCard
+            title="Pendências de ASO"
+            value={stats.asoAlerts}
+            change={`${stats.asoExpired} vencidos • ${stats.asoExpiring30} a vencer`}
+            icon={Stethoscope}
+            iconColor="text-orange-600"
+            bgColor="bg-orange-50"
+            trend={stats.asoAlerts > 0 ? 'warning' : 'success'}
+            loading={loading}
+          />
+          <StatCard
+            title="Estoque Crítico de EPI"
+            value={stats.inventoryCritical}
+            change={stats.inventoryCritical > 0 ? 'Itens abaixo do mínimo' : 'Sem alertas'}
+            icon={Package}
+            iconColor="text-red-600"
+            bgColor="bg-red-50"
+            trend={stats.inventoryCritical > 0 ? 'danger' : 'success'}
+            loading={loading}
+          />
+          <StatCard
+            title="Incidentes em Aberto"
+            value={stats.openIncidents}
+            change={`${stats.incidentsLast30} nos últimos 30 dias`}
+            icon={AlertTriangle}
+            iconColor="text-red-500"
+            bgColor="bg-red-50"
+            trend={stats.openIncidents > 0 ? 'danger' : 'success'}
             loading={loading}
           />
         </div>
@@ -223,33 +422,18 @@ export default function Dashboard() {
               </Link>
             </div>
             <div className="space-y-3">
-              <AlertItem 
-                title="Aviso de Alta Temperatura"
-                time="10 min atrás"
-                description="Almoxarifado A - Zona 4 reportou temperaturas acima do limite de segurança (38°C)."
-                type="Alerta"
-                status="Crítico"
-                icon={Thermometer}
-                iconBg="bg-orange-100 text-orange-600"
-              />
-              <AlertItem 
-                title="Vazamento Químico Reportado"
-                time="2 horas atrás"
-                description="Setor B3 - Doca de Carga reportou pequeno derramamento de líquido. Equipe de limpeza enviada."
-                type="Incidente"
-                status="Em Andamento"
-                icon={Droplets}
-                iconBg="bg-red-100 text-red-600"
-              />
-              <AlertItem 
-                title="Inspeção de EPI Pendente"
-                time="4 horas atrás"
-                description="Equipe Alpha Manutenção necessita de inspeção mensal de cintos antes do início do turno."
-                type="Manutenção"
-                status="Agendado"
-                icon={UserCheck}
-                iconBg="bg-blue-100 text-blue-600"
-              />
+              {alerts.map((alert) => (
+                <AlertItem
+                  key={alert.title}
+                  title={alert.title}
+                  time={alert.time}
+                  description={alert.description}
+                  type={alert.type}
+                  status={alert.status}
+                  icon={alert.icon}
+                  iconBg={alert.iconBg}
+                />
+              ))}
             </div>
           </div>
 
@@ -287,27 +471,27 @@ export default function Dashboard() {
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-xs font-bold mb-1">
-                    <span className="text-slate-500">Segurança Contra Incêndio</span>
-                    <span className="text-[#1A237E]">100%</span>
+                    <span className="text-slate-500">Assinatura Digital</span>
+                    <span className="text-[#1A237E]">{loading ? '—' : `${stats.signatureCoverage}%`}</span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
-                      animate={{ width: "100%" }}
+                      animate={{ width: `${stats.signatureCoverage}%` }}
                       transition={{ duration: 1, ease: "easeOut" }}
-                      className="bg-green-500 h-full"
+                      className="bg-[#1A237E] h-full"
                     />
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between text-xs font-bold mb-1">
-                    <span className="text-slate-500">Resíduos Perigosos</span>
-                    <span className="text-[#1A237E]">85%</span>
+                    <span className="text-slate-500">Consentimento LGPD</span>
+                    <span className="text-[#1A237E]">{loading ? '—' : `${stats.lgpdCoverage}%`}</span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
-                      animate={{ width: "85%" }}
+                      animate={{ width: `${stats.lgpdCoverage}%` }}
                       transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
                       className="bg-[#1A237E] h-full"
                     />
@@ -315,14 +499,28 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <div className="flex justify-between text-xs font-bold mb-1">
-                    <span className="text-slate-500">NR-10 Elétrica</span>
-                    <span className="text-[#1A237E]">92%</span>
+                    <span className="text-slate-500">ASOs em Dia</span>
+                    <span className="text-[#1A237E]">{loading ? '—' : `${stats.asoOnTime}%`}</span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
-                      animate={{ width: "92%" }}
+                      animate={{ width: `${stats.asoOnTime}%` }}
                       transition={{ duration: 1, ease: "easeOut", delay: 0.4 }}
+                      className="bg-[#1A237E] h-full"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1">
+                    <span className="text-slate-500">Incidentes com Evidência (30d)</span>
+                    <span className="text-[#1A237E]">{loading ? '—' : `${stats.incidentsEvidenceCoverage}%`}</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${stats.incidentsEvidenceCoverage}%` }}
+                      transition={{ duration: 1, ease: 'easeOut', delay: 0.6 }}
                       className="bg-[#1A237E] h-full"
                     />
                   </div>
