@@ -158,53 +158,181 @@ export default function DDSPage() {
       return { name, sig: c?.digital_signature || '' };
     });
 
+    const escapeHtml = (value: string) =>
+      String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const formatDate = (value: string) => {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('pt-BR');
+    };
+
+    const minimumRows = 41;
+    const totalRows = Math.max(participantsWithSig.length, minimumRows);
+    const attendanceRows = Array.from({ length: totalRows }, (_, idx) => {
+      const participant = participantsWithSig[idx];
+      return `
+        <tr>
+          <td class="col-index">${idx + 1}</td>
+          <td class="col-name">${participant ? escapeHtml(participant.name) : ''}</td>
+          <td class="col-sign">${participant?.sig ? `<img src="${participant.sig}" alt="Assinatura" />` : ''}</td>
+        </tr>
+      `;
+    }).join('');
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     printWindow.document.write(`<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Relatório DDS — ${record.theme}</title>
+  <title>Lista DDS — ${escapeHtml(record.theme)}</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 40px; color: #1a1a1a; font-size: 13px; }
-    h1 { font-size: 20px; color: #1A237E; margin-bottom: 4px; }
-    .sub { font-size: 11px; color: #666; margin-bottom: 24px; }
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 20px; }
-    .info-item { background: #f8f9fa; padding: 10px; border-radius: 6px; }
-    .info-label { font-size: 10px; color: #888; text-transform: uppercase; font-weight: bold; }
-    .info-value { font-size: 13px; font-weight: bold; color: #1a1a1a; margin-top: 2px; }
-    .content-box { background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 24px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
-    h2 { font-size: 14px; color: #1A237E; margin-bottom: 12px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
-    .participants-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
-    .participant-item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; display: grid; grid-template-columns: 28px 1fr 220px; gap: 10px; align-items: center; }
-    .participant-index { width: 24px; height: 24px; border-radius: 999px; background: #eef2ff; color: #1A237E; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
-    .participant-name { font-size: 12px; font-weight: bold; }
-    .sig-box { border: 1px solid #ddd; border-radius: 4px; min-height: 54px; display: flex; align-items: center; justify-content: center; background: #fafafa; }
-    @media print { body { margin: 20px; } }
+    @page { size: A4 portrait; margin: 8mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f1f1f1;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #111;
+      font-size: 11px;
+      line-height: 1.2;
+    }
+    .sheet {
+      width: 190mm;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid #7f7f7f;
+      padding: 3mm;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .meta td,
+    .meta th,
+    .attendance td,
+    .attendance th {
+      border: 1px solid #7f7f7f;
+      padding: 2px 4px;
+      vertical-align: middle;
+    }
+    .title-row {
+      text-align: center;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: .2px;
+      height: 22px;
+    }
+    .label {
+      font-weight: 700;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+    .value {
+      font-size: 10.5px;
+      min-height: 14px;
+    }
+    .theme-row td {
+      font-weight: 700;
+      font-size: 10.5px;
+      height: 20px;
+    }
+    .attendance {
+      margin-top: -1px;
+    }
+    .attendance thead th {
+      text-align: center;
+      font-weight: 700;
+      font-size: 10.5px;
+      height: 20px;
+    }
+    .attendance tbody td {
+      height: 15px;
+      font-size: 10px;
+      padding: 0 4px;
+    }
+    .col-index {
+      width: 6%;
+      text-align: center;
+      padding: 0;
+    }
+    .col-name {
+      width: 54%;
+    }
+    .col-sign {
+      width: 40%;
+      text-align: center;
+      padding: 0;
+    }
+    .col-sign img {
+      display: block;
+      margin: 0 auto;
+      max-width: 95%;
+      max-height: 14px;
+      object-fit: contain;
+      mix-blend-mode: multiply;
+    }
+    .footer-note {
+      margin-top: 3px;
+      text-align: right;
+      font-size: 9px;
+      color: #444;
+    }
+    @media print {
+      body { background: #fff; }
+      .sheet {
+        width: auto;
+        margin: 0;
+        border: 1px solid #7f7f7f;
+        padding: 2mm;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>Diálogo Diário de Segurança — ${record.theme}</h1>
-  <p class="sub">${companyName} · Emitido em: ${new Date().toLocaleDateString('pt-BR')}</p>
-  <div class="info-grid">
-    <div class="info-item"><div class="info-label">Data</div><div class="info-value">${record.date}</div></div>
-    <div class="info-item"><div class="info-label">Duração</div><div class="info-value">${record.duration}</div></div>
-    <div class="info-item"><div class="info-label">Técnico</div><div class="info-value">${record.technician}</div></div>
+  <div class="sheet">
+    <table class="meta">
+      <tr>
+        <th class="title-row" colspan="4">LISTA DE DDS (Diálogo Diário de Segurança)</th>
+      </tr>
+      <tr>
+        <td class="label">Técnico Seg. Trabalho:</td>
+        <td class="value">${escapeHtml(record.technician || '')}</td>
+        <td class="label">Data:</td>
+        <td class="value">${escapeHtml(formatDate(record.date))}</td>
+      </tr>
+      <tr>
+        <td class="label">Setor:</td>
+        <td class="value">&nbsp;</td>
+        <td class="label">Carga horária:</td>
+        <td class="value">${escapeHtml(record.duration || '')}</td>
+      </tr>
+      <tr class="theme-row">
+        <td colspan="4">TEMA DO CURSO/TREINAMENTO: ${escapeHtml(record.theme || '')}</td>
+      </tr>
+    </table>
+
+    <table class="attendance">
+      <thead>
+        <tr>
+          <th class="col-index"></th>
+          <th class="col-name">Nome completo</th>
+          <th class="col-sign">Assinatura</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${attendanceRows}
+      </tbody>
+    </table>
+
+    <div class="footer-note">${escapeHtml(companyName)} · Emitido em ${new Date().toLocaleDateString('pt-BR')}</div>
   </div>
-  <h2>Conteúdo Abordado</h2>
-  <div class="content-box">${record.content}</div>
-  <h2>Participantes e Assinaturas (${participantsWithSig.length})</h2>
-  <ul class="participants-list">
-    ${participantsWithSig.map((p, idx) => `
-      <li class="participant-item">
-        <div class="participant-index">${idx + 1}</div>
-        <div class="participant-name">${p.name}</div>
-        <div class="sig-box">
-          ${p.sig ? `<img src="${p.sig}" style="height:52px;display:block;" alt="Assinatura" />` : '<span style="font-size:11px;color:#bbb;">Assinatura pendente</span>'}
-        </div>
-      </li>
-    `).join('')}
-  </ul>
 </body>
 </html>`);
     printWindow.document.close();
