@@ -20,7 +20,8 @@ import {
   Eye,
   Clock,
   Calendar,
-  UserCog
+  UserCog,
+  Printer,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -40,6 +41,20 @@ interface DDSRecord {
 interface Collaborator {
   id: string;
   name: string;
+  digital_signature?: string;
+}
+
+// Parse duration string to total minutes
+function parseDurationMinutes(duration: string): number {
+  if (!duration) return 0;
+  const d = duration.toLowerCase().replace(/\s/g, '');
+  let total = 0;
+  const hMatch = d.match(/(\d+(?:\.\d+)?)h/);
+  const mMatch = d.match(/(\d+)min/);
+  if (hMatch) total += parseFloat(hMatch[1]) * 60;
+  if (mMatch) total += parseInt(mMatch[1]);
+  if (!hMatch && !mMatch) total = parseInt(d) || 0;
+  return total;
 }
 
 export default function DDSPage() {
@@ -48,11 +63,12 @@ export default function DDSPage() {
   const [records, setRecords] = useState<DDSRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [collaborators, setCollaborators] = useState<string[]>([]);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
 
   const [newTheme, setNewTheme] = useState('');
   const [newContent, setNewContent] = useState('');
   const [technicianName, setTechnicianName] = useState('');
+  const [newDuration, setNewDuration] = useState('15 min');
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
 
   const [editingRecord, setEditingRecord] = useState<DDSRecord | null>(null);
@@ -105,12 +121,12 @@ export default function DDSPage() {
     try {
       const { data, error } = await supabase
         .from('collaborators')
-        .select('id, name')
+        .select('id, name, digital_signature')
         .eq('status', 'Ativo')
         .order('name', { ascending: true });
 
       if (error) throw error;
-      setCollaborators((data || []).map((c: Collaborator) => c.name));
+      setCollaborators((data || []) as Collaborator[]);
     } catch (error: any) {
       console.error('Error fetching collaborators:', error.message);
       // Fallback to empty array — no hardcoded names
@@ -129,9 +145,78 @@ export default function DDSPage() {
     );
   };
 
+  const handlePrintDDS = (record: DDSRecord) => {
+    const companyName = (() => {
+      try {
+        const s = localStorage.getItem('jomaga_company_settings');
+        return s ? JSON.parse(s).companyName || 'SafeWork' : 'SafeWork';
+      } catch { return 'SafeWork'; }
+    })();
+
+    const participantsWithSig = (record.participants || []).map(name => {
+      const c = collaborators.find(c => c.name === name);
+      return { name, sig: c?.digital_signature || '' };
+    });
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Relatório DDS — ${record.theme}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; color: #1a1a1a; font-size: 13px; }
+    h1 { font-size: 20px; color: #1A237E; margin-bottom: 4px; }
+    .sub { font-size: 11px; color: #666; margin-bottom: 24px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+    .info-item { background: #f8f9fa; padding: 10px; border-radius: 6px; }
+    .info-label { font-size: 10px; color: #888; text-transform: uppercase; font-weight: bold; }
+    .info-value { font-size: 13px; font-weight: bold; color: #1a1a1a; margin-top: 2px; }
+    .content-box { background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 24px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+    h2 { font-size: 14px; color: #1A237E; margin-bottom: 12px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+    .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .sig-item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
+    .sig-name { font-size: 12px; font-weight: bold; margin-bottom: 8px; }
+    .sig-box { border: 1px solid #ddd; border-radius: 4px; min-height: 60px; display: flex; align-items: center; justify-content: center; background: #fafafa; }
+    @media print { body { margin: 20px; } }
+  </style>
+</head>
+<body>
+  <h1>Diálogo Diário de Segurança — ${record.theme}</h1>
+  <p class="sub">${companyName} · Emitido em: ${new Date().toLocaleDateString('pt-BR')}</p>
+  <div class="info-grid">
+    <div class="info-item"><div class="info-label">Data</div><div class="info-value">${record.date}</div></div>
+    <div class="info-item"><div class="info-label">Duração</div><div class="info-value">${record.duration}</div></div>
+    <div class="info-item"><div class="info-label">Técnico</div><div class="info-value">${record.technician}</div></div>
+  </div>
+  <h2>Conteúdo Abordado</h2>
+  <div class="content-box">${record.content}</div>
+  <h2>Participantes e Assinaturas (${participantsWithSig.length})</h2>
+  <div class="sig-grid">
+    ${participantsWithSig.map(p => `
+    <div class="sig-item">
+      <div class="sig-name">${p.name}</div>
+      <div class="sig-box">
+        ${p.sig ? `<img src="${p.sig}" style="height:56px;display:block;" alt="Assinatura" />` : '<span style="font-size:11px;color:#bbb;">Assinatura pendente</span>'}
+      </div>
+    </div>`).join('')}
+  </div>
+</body>
+</html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);
+  };
+
   const handleSaveDDS = async () => {
     if (!newTheme.trim() || !newContent.trim() || selectedParticipants.length === 0) {
       toast.error('Preencha todos os campos e selecione ao menos um participante.');
+      return;
+    }
+    const durationMinutes = parseDurationMinutes(newDuration);
+    if (durationMinutes < 15) {
+      toast.error('A duração mínima do DDS é de 15 minutos. Corrija o campo de duração.');
       return;
     }
 
@@ -144,7 +229,7 @@ export default function DDSPage() {
           content: newContent.trim(),
           technician: technicianName.trim() || 'Técnico',
           participants: selectedParticipants,
-          duration: '15 min'
+          duration: newDuration.trim() || '15 min'
         }]);
 
       if (error) throw error;
@@ -152,6 +237,7 @@ export default function DDSPage() {
       toast.success('DDS registrado com sucesso!');
       setNewTheme('');
       setNewContent('');
+      setNewDuration('15 min');
       setSelectedParticipants([]);
       fetchDDSRecords();
       setActiveTab('history');
@@ -375,6 +461,13 @@ export default function DDSPage() {
                             </div>
                             <div className="flex items-center gap-2">
                               <button
+                                onClick={() => handlePrintDDS(record)}
+                                className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                                title="Imprimir relatório"
+                              >
+                                <Printer size={18} />
+                              </button>
+                              <button
                                 onClick={() => handleOpenEdit(record)}
                                 className="p-2 text-slate-400 hover:text-[#1A237E] hover:bg-slate-50 rounded-lg transition-all"
                                 title="Editar"
@@ -424,6 +517,24 @@ export default function DDSPage() {
                       />
                     </div>
                     <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Duração</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={newDuration}
+                          onChange={(e) => setNewDuration(e.target.value)}
+                          placeholder="Ex: 15 min, 30 min, 1h"
+                          className={cn(
+                            "w-full px-4 py-3 bg-slate-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1A237E]/20 transition-all",
+                            parseDurationMinutes(newDuration) < 15 && newDuration ? "border-red-300 bg-red-50" : "border-slate-200"
+                          )}
+                        />
+                        {newDuration && parseDurationMinutes(newDuration) < 15 && (
+                          <p className="text-xs text-red-500 mt-1">Duração mínima: 15 minutos</p>
+                        )}
+                      </div>
+                    </div>
+                    <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Tema do Diálogo</label>
                       <input
                         type="text"
@@ -471,13 +582,13 @@ export default function DDSPage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto pr-2">
-                      {collaborators.map((name) => (
+                      {collaborators.map((c) => (
                         <button
-                          key={name}
-                          onClick={() => toggleParticipant(name)}
+                          key={c.name}
+                          onClick={() => toggleParticipant(c.name)}
                           className={cn(
                             'flex items-center justify-between p-3 rounded-xl border transition-all text-left',
-                            selectedParticipants.includes(name)
+                            selectedParticipants.includes(c.name)
                               ? 'bg-green-50 border-green-200 text-green-800'
                               : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                           )}
@@ -485,13 +596,13 @@ export default function DDSPage() {
                           <div className="flex items-center gap-3">
                             <div className={cn(
                               'w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs',
-                              selectedParticipants.includes(name) ? 'bg-green-200' : 'bg-slate-100'
+                              selectedParticipants.includes(c.name) ? 'bg-green-200' : 'bg-slate-100'
                             )}>
-                              {name.charAt(0)}
+                              {c.name.charAt(0)}
                             </div>
-                            <span className="text-sm font-medium">{name}</span>
+                            <span className="text-sm font-medium">{c.name}</span>
                           </div>
-                          {selectedParticipants.includes(name) && <UserCheck size={18} className="text-green-600" />}
+                          {selectedParticipants.includes(c.name) && <UserCheck size={18} className="text-green-600" />}
                         </button>
                       ))}
                     </div>
@@ -658,14 +769,14 @@ export default function DDSPage() {
                     {collaborators.length === 0 ? (
                       <p className="text-xs text-slate-400 text-center py-3">Nenhum colaborador disponível</p>
                     ) : (
-                      collaborators.map((name) => (
+                      collaborators.map((c) => (
                         <button
-                          key={name}
+                          key={c.name}
                           type="button"
-                          onClick={() => toggleEditParticipant(name)}
+                          onClick={() => toggleEditParticipant(c.name)}
                           className={cn(
                             'w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all text-sm',
-                            editParticipants.includes(name)
+                            editParticipants.includes(c.name)
                               ? 'bg-green-50 text-green-800 border border-green-200'
                               : 'hover:bg-slate-50 text-slate-600 border border-transparent'
                           )}
@@ -673,13 +784,13 @@ export default function DDSPage() {
                           <div className="flex items-center gap-2">
                             <div className={cn(
                               'w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px]',
-                              editParticipants.includes(name) ? 'bg-green-200 text-green-800' : 'bg-slate-100 text-slate-500'
+                              editParticipants.includes(c.name) ? 'bg-green-200 text-green-800' : 'bg-slate-100 text-slate-500'
                             )}>
-                              {name.charAt(0)}
+                              {c.name.charAt(0)}
                             </div>
-                            <span className="font-medium">{name}</span>
+                            <span className="font-medium">{c.name}</span>
                           </div>
-                          {editParticipants.includes(name) && <UserCheck size={14} className="text-green-600" />}
+                          {editParticipants.includes(c.name) && <UserCheck size={14} className="text-green-600" />}
                         </button>
                       ))
                     )}

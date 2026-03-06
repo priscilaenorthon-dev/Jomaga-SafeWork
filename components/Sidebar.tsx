@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   HardHat,
   GraduationCap,
-  AlertTriangle,
+  ShieldAlert,
   CheckSquare,
   BarChart3,
   Settings,
@@ -16,6 +16,9 @@ import {
   MoreHorizontal,
   X,
   LogOut,
+  Stethoscope,
+  Package,
+  TableProperties,
 } from 'lucide-react';
 import { JomagaLogo } from '@/components/JomagaLogo';
 import { cn } from '@/lib/utils';
@@ -26,10 +29,17 @@ import { toast } from 'sonner';
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
   { icon: UserCheck, label: 'Colaboradores', href: '/colaboradores' },
-  { icon: HardHat, label: 'Gestão de EPIs', href: '/epis' },
-  { icon: GraduationCap, label: 'Treinamentos', href: '/treinamentos' },
-  { icon: AlertTriangle, label: 'Incidentes', href: '/incidentes' },
+  { icon: HardHat, label: 'Gestão de EPIs', href: '/epis', sub: [
+    { label: 'Fichas de EPI', href: '/epis' },
+    { label: 'Inventário', href: '/epis/inventario' },
+  ]},
+  { icon: GraduationCap, label: 'Treinamentos', href: '/treinamentos', sub: [
+    { label: 'Lista de Treinamentos', href: '/treinamentos' },
+    { label: 'Matriz de Treinamento', href: '/treinamentos/matriz' },
+  ]},
+  { icon: ShieldAlert, label: 'Gestão de Risco', href: '/incidentes' },
   { icon: CheckSquare, label: 'Conformidade DDS', href: '/dds' },
+  { icon: Stethoscope, label: 'Gestão de ASO', href: '/aso' },
   { icon: BarChart3, label: 'Relatórios', href: '/relatorios' },
 ];
 
@@ -38,48 +48,87 @@ const footerItems = [
   { icon: HelpCircle, label: 'Suporte', href: '/suporte' },
 ];
 
-// 4 main items always visible in the bottom nav
 const bottomNavItems = [
   { icon: LayoutDashboard, label: 'Início', href: '/' },
   { icon: HardHat, label: 'EPIs', href: '/epis' },
-  { icon: AlertTriangle, label: 'Incidentes', href: '/incidentes' },
+  { icon: ShieldAlert, label: 'Risco', href: '/incidentes' },
   { icon: CheckSquare, label: 'DDS', href: '/dds' },
 ];
 
-// Remaining items shown in the "Mais" bottom sheet
 const moreSheetItems = [
   { icon: UserCheck, label: 'Colaboradores', href: '/colaboradores' },
   { icon: GraduationCap, label: 'Treinamentos', href: '/treinamentos' },
+  { icon: TableProperties, label: 'Matriz', href: '/treinamentos/matriz' },
+  { icon: Package, label: 'Inventário', href: '/epis/inventario' },
+  { icon: Stethoscope, label: 'ASO', href: '/aso' },
   { icon: BarChart3, label: 'Relatórios', href: '/relatorios' },
   { icon: Settings, label: 'Configurações', href: '/configuracoes' },
   { icon: HelpCircle, label: 'Suporte', href: '/suporte' },
 ];
 
-const DesktopSidebarContent = ({ pathname }: { pathname: string }) => (
+function DesktopMenuItem({ item, pathname }: { item: typeof menuItems[0]; pathname: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isActive = pathname === item.href || (item.sub && item.sub.some(s => pathname === s.href));
+
+  if (item.sub) {
+    return (
+      <div>
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className={cn(
+            'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all cursor-pointer group mb-1',
+            isActive ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+          )}
+        >
+          <item.icon size={20} className={cn(isActive ? 'text-white' : 'text-slate-400 group-hover:text-white')} />
+          <span className={cn('text-sm flex-1 text-left', isActive ? 'font-semibold' : 'font-medium')}>{item.label}</span>
+          <svg className={cn("w-3 h-3 transition-transform", expanded ? "rotate-180" : "")} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        </button>
+        {expanded && (
+          <div className="ml-8 mb-1 space-y-0.5">
+            {item.sub.map(s => (
+              <Link key={s.href} href={s.href}>
+                <div className={cn(
+                  'text-xs px-3 py-2 rounded-lg transition-all cursor-pointer',
+                  pathname === s.href ? 'bg-white/10 text-white font-semibold' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                )}>
+                  {s.label}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Link href={item.href}>
+      <div className={cn(
+        'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all cursor-pointer group mb-1',
+        isActive ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+      )}>
+        <item.icon size={20} className={cn(isActive ? 'text-white' : 'text-slate-400 group-hover:text-white')} />
+        <span className={cn('text-sm', isActive ? 'font-semibold' : 'font-medium')}>{item.label}</span>
+      </div>
+    </Link>
+  );
+}
+
+const DesktopSidebarContent = ({ pathname, companyName }: { pathname: string; companyName: string }) => (
   <div className="flex flex-col h-full bg-[#1A237E] text-white">
     <div className="p-6 flex items-center gap-3">
       <JomagaLogo size={38} />
       <div>
-        <h1 className="text-lg font-bold leading-tight tracking-tight">Jomaga</h1>
+        <h1 className="text-lg font-bold leading-tight tracking-tight">{companyName}</h1>
         <p className="text-xs text-slate-300 font-medium">Sistema SafeWork</p>
       </div>
     </div>
 
-    <nav className="flex-1 px-4 py-4 space-y-1">
-      {menuItems.map((item) => {
-        const active = pathname === item.href;
-        return (
-          <Link key={item.href} href={item.href}>
-            <div className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all cursor-pointer group mb-1',
-              active ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'
-            )}>
-              <item.icon size={20} className={cn(active ? 'text-white' : 'text-slate-400 group-hover:text-white')} />
-              <span className={cn('text-sm', active ? 'font-semibold' : 'font-medium')}>{item.label}</span>
-            </div>
-          </Link>
-        );
-      })}
+    <nav className="flex-1 px-4 py-4 space-y-0.5 overflow-y-auto">
+      {menuItems.map((item) => (
+        <DesktopMenuItem key={item.href} item={item} pathname={pathname} />
+      ))}
     </nav>
 
     <div className="px-4 py-6 border-t border-white/10 space-y-1">
@@ -103,6 +152,22 @@ export function Sidebar() {
   const router = useRouter();
   const supabase = createClient();
   const [showMore, setShowMore] = useState(false);
+  const [companyName, setCompanyName] = useState('Jomaga');
+
+  useEffect(() => {
+    const loadCompanyName = () => {
+      const saved = localStorage.getItem('jomaga_company_settings');
+      if (saved) {
+        try {
+          const settings = JSON.parse(saved);
+          if (settings.companyName) setCompanyName(settings.companyName);
+        } catch {}
+      }
+    };
+    loadCompanyName();
+    window.addEventListener('company-settings-updated', loadCompanyName);
+    return () => window.removeEventListener('company-settings-updated', loadCompanyName);
+  }, []);
 
   const handleLogout = async () => {
     setShowMore(false);
@@ -117,7 +182,7 @@ export function Sidebar() {
     <>
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-64 shrink-0 h-screen sticky top-0">
-        <DesktopSidebarContent pathname={pathname} />
+        <DesktopSidebarContent pathname={pathname} companyName={companyName} />
       </aside>
 
       {/* Mobile Bottom Navigation Bar */}
@@ -194,16 +259,14 @@ export function Sidebar() {
               className="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-2xl lg:hidden"
               style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
             >
-              {/* Drag handle */}
               <div className="flex justify-center pt-3 pb-1">
                 <div className="w-10 h-1 bg-slate-200 rounded-full" />
               </div>
 
-              {/* Sheet header */}
               <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <JomagaLogo size={24} />
-                  <span className="font-bold text-slate-800">Menu</span>
+                  <span className="font-bold text-slate-800">{companyName}</span>
                 </div>
                 <button
                   onClick={() => setShowMore(false)}
@@ -213,8 +276,7 @@ export function Sidebar() {
                 </button>
               </div>
 
-              {/* Items grid */}
-              <div className="p-4 grid grid-cols-3 gap-3">
+              <div className="p-4 grid grid-cols-4 gap-3">
                 {moreSheetItems.map((item) => {
                   const active = pathname === item.href;
                   return (
@@ -223,18 +285,18 @@ export function Sidebar() {
                       href={item.href}
                       onClick={() => setShowMore(false)}
                       className={cn(
-                        'flex flex-col items-center gap-2 py-4 px-2 rounded-xl transition-colors',
+                        'flex flex-col items-center gap-2 py-3 px-1 rounded-xl transition-colors',
                         active ? 'bg-[#1A237E]/10' : 'bg-slate-50 active:bg-slate-100'
                       )}
                     >
                       <div className={cn(
-                        'w-12 h-12 rounded-xl flex items-center justify-center',
+                        'w-10 h-10 rounded-xl flex items-center justify-center',
                         active ? 'bg-[#1A237E]' : 'bg-white border border-slate-200 shadow-sm'
                       )}>
-                        <item.icon size={22} className={active ? 'text-white' : 'text-slate-600'} />
+                        <item.icon size={20} className={active ? 'text-white' : 'text-slate-600'} />
                       </div>
                       <span className={cn(
-                        'text-xs font-semibold text-center leading-tight',
+                        'text-[10px] font-semibold text-center leading-tight',
                         active ? 'text-[#1A237E]' : 'text-slate-700'
                       )}>
                         {item.label}
@@ -244,7 +306,6 @@ export function Sidebar() {
                 })}
               </div>
 
-              {/* Logout */}
               <div className="px-4 pb-5">
                 <button
                   onClick={handleLogout}
