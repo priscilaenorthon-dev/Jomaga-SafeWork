@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { use, useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { PenLine, Check, RotateCcw, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -112,7 +112,8 @@ function SignatureCanvas({ value, onChange }: { value?: string; onChange: (sig: 
   );
 }
 
-export default function AssinaturaPage({ params }: { params: { token: string } }) {
+export default function AssinaturaPage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = use(params);
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -126,7 +127,7 @@ export default function AssinaturaPage({ params }: { params: { token: string } }
       const { data, error } = await supabase
         .from('collaborators')
         .select('id, name, signature_invite_expires_at')
-        .eq('signature_invite_token', params.token)
+        .eq('signature_invite_token', token)
         .maybeSingle();
 
       if (error || !data) {
@@ -150,7 +151,7 @@ export default function AssinaturaPage({ params }: { params: { token: string } }
     };
 
     fetchCollaborator();
-  }, [params.token]);
+  }, [token]);
 
   const handleSave = async () => {
     if (!collaborator) return;
