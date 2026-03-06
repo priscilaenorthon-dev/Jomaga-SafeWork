@@ -178,13 +178,29 @@ export default function ConfiguracoesPage() {
         window.dispatchEvent(new Event('company-settings-updated'));
 
         const { data: { user } } = await supabase.auth.getUser();
+        let updatedBy: string | null = null;
+
+        if (user?.id) {
+          const { error: profileEnsureError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: user.id,
+              full_name: user.user_metadata?.full_name || null,
+              avatar_url: user.user_metadata?.avatar_url || null,
+            }, { onConflict: 'id' });
+
+          if (!profileEnsureError) {
+            updatedBy = user.id;
+          }
+        }
+
         const { error } = await supabase
           .from('company_settings')
           .upsert({
             id: 1,
             company_name: companySettings.companyName,
             logo_url: companySettings.companyLogo,
-            updated_by: user?.id || null,
+            updated_by: updatedBy,
           }, { onConflict: 'id' });
 
         if (error) throw error;
