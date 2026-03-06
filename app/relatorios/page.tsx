@@ -295,9 +295,111 @@ export default function RelatoriosPage() {
     }
   };
 
+  const escapeHtml = (value: string | number | null | undefined) =>
+    String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const formatDate = (value: string | null | undefined) => {
+    if (!value) return '—';
+    const date = value.includes('T') ? new Date(value) : new Date(`${value}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleDateString('pt-BR');
+  };
+
+  const openProfessionalReport = (title: string, bodyHtml: string) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Não foi possível abrir a janela de impressão.');
+      return false;
+    }
+
+    const reference = `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>${escapeHtml(title)}</title>
+  <style>
+    @page { size: A4; margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; margin: 0; font-size: 12px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1A237E; padding-bottom: 10px; margin-bottom: 14px; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand img { width: 38px; height: 38px; border-radius: 8px; object-fit: contain; border: 1px solid #e2e8f0; padding: 2px; }
+    .title { text-align: right; }
+    .title h1 { margin: 0; font-size: 16px; color: #1A237E; }
+    .title p { margin: 2px 0 0 0; font-size: 10px; color: #64748b; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+    .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #f8fafc; }
+    .card .k { font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: .3px; }
+    .card .v { font-size: 16px; font-weight: 700; color: #0f172a; margin-top: 4px; }
+    h2 { margin: 16px 0 8px 0; font-size: 12px; color: #1e293b; text-transform: uppercase; letter-spacing: .3px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #dbe1ea; padding: 6px 8px; text-align: left; }
+    th { background: #1A237E; color: #fff; font-size: 10px; text-transform: uppercase; }
+    .status-ativo { color: #16a34a; font-weight: 700; }
+    .status-vencendo { color: #d97706; font-weight: 700; }
+    .status-expirado { color: #dc2626; font-weight: 700; }
+    .footer { margin-top: 14px; border-top: 1px solid #e2e8f0; padding-top: 8px; font-size: 10px; color: #64748b; display: flex; justify-content: space-between; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <img src="${escapeHtml(companyBranding.companyLogo)}" alt="Logo" />
+      <div>
+        <strong>${escapeHtml(companyBranding.companyName)}</strong>
+        <div style="font-size:10px;color:#64748b;">Sistema SafeWork</div>
+      </div>
+    </div>
+    <div class="title">
+      <h1>${escapeHtml(title)}</h1>
+      <p>Referência: ${escapeHtml(reference)}</p>
+    </div>
+  </div>
+
+  ${bodyHtml}
+
+  <div class="footer">
+    <span>${escapeHtml(companyBranding.companyName)} · Documento gerado automaticamente</span>
+    <span>SafeWork</span>
+  </div>
+</body>
+</html>`);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 400);
+
+    return true;
+  };
+
   const generateReportDownload = async (title: string) => {
     if (title.includes('Segurança')) {
       generateMonthlySecurityPdf();
+      return;
+    }
+
+    if (title.includes('Ata de DDS')) {
+      await generateDdsMinutesPdf();
+      return;
+    }
+
+    if (title.includes('Ficha de EPI')) {
+      await generateEpiSheetPdf();
+      return;
+    }
+
+    if (title.includes('CAT') || title.includes('Incidentes')) {
+      await generateIncidentsCatPdf();
       return;
     }
 
@@ -344,20 +446,6 @@ export default function RelatoriosPage() {
   };
 
   const generateMonthlySecurityPdf = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error('Não foi possível abrir a janela de impressão.');
-      return;
-    }
-
-    const escapeHtml = (value: string) =>
-      String(value || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-
     const monthRows = monthlyData.map((m) => `
       <tr>
         <td>${escapeHtml(m.name)}</td>
@@ -374,50 +462,7 @@ export default function RelatoriosPage() {
       </tr>
     `).join('');
 
-    const now = new Date();
-    const reference = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-
-    printWindow.document.write(`<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <title>Relatório Mensal de Segurança</title>
-  <style>
-    @page { size: A4; margin: 14mm; }
-    * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; margin: 0; font-size: 12px; }
-    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1A237E; padding-bottom: 10px; margin-bottom: 14px; }
-    .brand { display: flex; align-items: center; gap: 10px; }
-    .brand img { width: 38px; height: 38px; border-radius: 8px; object-fit: contain; border: 1px solid #e2e8f0; padding: 2px; }
-    .title { text-align: right; }
-    .title h1 { margin: 0; font-size: 16px; color: #1A237E; }
-    .title p { margin: 2px 0 0 0; font-size: 10px; color: #64748b; }
-    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
-    .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #f8fafc; }
-    .card .k { font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: .3px; }
-    .card .v { font-size: 16px; font-weight: 700; color: #0f172a; margin-top: 4px; }
-    h2 { margin: 16px 0 8px 0; font-size: 12px; color: #1e293b; text-transform: uppercase; letter-spacing: .3px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #dbe1ea; padding: 6px 8px; text-align: left; }
-    th { background: #1A237E; color: #fff; font-size: 10px; text-transform: uppercase; }
-    .footer { margin-top: 14px; border-top: 1px solid #e2e8f0; padding-top: 8px; font-size: 10px; color: #64748b; display: flex; justify-content: space-between; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="brand">
-      <img src="${escapeHtml(companyBranding.companyLogo)}" alt="Logo" />
-      <div>
-        <strong>${escapeHtml(companyBranding.companyName)}</strong>
-        <div style="font-size:10px;color:#64748b;">Sistema SafeWork</div>
-      </div>
-    </div>
-    <div class="title">
-      <h1>Relatório Mensal de Segurança</h1>
-      <p>Referência: ${escapeHtml(reference)}</p>
-    </div>
-  </div>
-
+    const bodyHtml = `
   <div class="grid">
     <div class="card"><div class="k">Incidentes Abertos</div><div class="v">${kpis.incidentesAbertos}</div></div>
     <div class="card"><div class="k">Incidentes no Mês</div><div class="v">${kpis.incidentesMes}</div></div>
@@ -457,20 +502,179 @@ export default function RelatoriosPage() {
     </tbody>
   </table>
 
-  <div class="footer">
-    <span>${escapeHtml(companyBranding.companyName)} · Relatório gerado automaticamente</span>
-    <span>SafeWork</span>
-  </div>
-</body>
-</html>`);
+`;
 
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 400);
-    toast.success('Relatório profissional pronto. Use “Salvar como PDF” na impressão.');
+    if (openProfessionalReport('Relatório Mensal de Segurança', bodyHtml)) {
+      toast.success('Relatório profissional pronto. Use “Salvar como PDF” na impressão.');
+    }
+  };
+
+  const generateDdsMinutesPdf = async () => {
+    const { data, error } = await supabase
+      .from('dds_records')
+      .select('date, theme, technician, participants, duration')
+      .order('date', { ascending: false })
+      .limit(60);
+
+    if (error) throw error;
+
+    const rows = (data || []).map((item: any) => `
+      <tr>
+        <td>${escapeHtml(formatDate(item.date))}</td>
+        <td>${escapeHtml(item.theme || '—')}</td>
+        <td>${escapeHtml(item.technician || '—')}</td>
+        <td>${escapeHtml(item.duration || '—')}</td>
+        <td>${Array.isArray(item.participants) ? item.participants.length : 0}</td>
+      </tr>
+    `).join('');
+
+    const totalRecords = (data || []).length;
+    const totalParticipants = (data || []).reduce((acc: number, item: any) => {
+      const count = Array.isArray(item.participants) ? item.participants.length : 0;
+      return acc + count;
+    }, 0);
+
+    const bodyHtml = `
+  <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="card"><div class="k">DDS no relatório</div><div class="v">${totalRecords}</div></div>
+    <div class="card"><div class="k">Participações</div><div class="v">${totalParticipants}</div></div>
+    <div class="card"><div class="k">Média por DDS</div><div class="v">${totalRecords > 0 ? Math.round(totalParticipants / totalRecords) : 0}</div></div>
+  </div>
+
+  <h2>Ata Consolidada de DDS</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Tema</th>
+        <th>Técnico</th>
+        <th>Duração</th>
+        <th>Participantes</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows || '<tr><td colspan="5">Nenhum DDS registrado.</td></tr>'}
+    </tbody>
+  </table>
+`;
+
+    if (openProfessionalReport('Ata de DDS', bodyHtml)) {
+      toast.success('Ata de DDS pronta para impressão/Salvar como PDF.');
+    }
+  };
+
+  const generateEpiSheetPdf = async () => {
+    const { data, error } = await supabase
+      .from('epis')
+      .select('item, user, status, date')
+      .order('date', { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
+
+    const total = (data || []).length;
+    const ativos = (data || []).filter((item: any) => item.status === 'Ativo').length;
+    const vencendo = (data || []).filter((item: any) => item.status === 'Vencendo').length;
+    const expirados = (data || []).filter((item: any) => item.status === 'Expirado').length;
+
+    const rows = (data || []).map((item: any) => {
+      const statusClass = item.status === 'Ativo'
+        ? 'status-ativo'
+        : item.status === 'Vencendo'
+          ? 'status-vencendo'
+          : 'status-expirado';
+
+      return `
+      <tr>
+        <td>${escapeHtml(item.user || '—')}</td>
+        <td>${escapeHtml(item.item || '—')}</td>
+        <td class="${statusClass}">${escapeHtml(item.status || '—')}</td>
+        <td>${escapeHtml(formatDate(item.date))}</td>
+      </tr>
+    `;
+    }).join('');
+
+    const bodyHtml = `
+  <div class="grid">
+    <div class="card"><div class="k">Total de registros</div><div class="v">${total}</div></div>
+    <div class="card"><div class="k">Em dia</div><div class="v">${ativos}</div></div>
+    <div class="card"><div class="k">Vencendo</div><div class="v">${vencendo}</div></div>
+    <div class="card"><div class="k">Expirados</div><div class="v">${expirados}</div></div>
+  </div>
+
+  <h2>Ficha Consolidada de EPIs</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Colaborador</th>
+        <th>Item de EPI</th>
+        <th>Status</th>
+        <th>Vencimento</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows || '<tr><td colspan="4">Nenhum EPI encontrado.</td></tr>'}
+    </tbody>
+  </table>
+`;
+
+    if (openProfessionalReport('Ficha de EPI (Consolidada)', bodyHtml)) {
+      toast.success('Ficha de EPI pronta para impressão/Salvar como PDF.');
+    }
+  };
+
+  const generateIncidentsCatPdf = async () => {
+    const { data, error } = await supabase
+      .from('incidents')
+      .select('date, title, area, severity, status, type, created_at')
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
+
+    const total = (data || []).length;
+    const abertos = (data || []).filter((item: any) => item.status !== 'Fechado').length;
+    const altaSeveridade = (data || []).filter((item: any) => item.severity === 'Alta').length;
+
+    const rows = (data || []).map((item: any) => `
+      <tr>
+        <td>${escapeHtml(formatDate(item.date || item.created_at))}</td>
+        <td>${escapeHtml(item.type || 'incidente')}</td>
+        <td>${escapeHtml(item.title || '—')}</td>
+        <td>${escapeHtml(item.area || '—')}</td>
+        <td>${escapeHtml(item.severity || '—')}</td>
+        <td>${escapeHtml(item.status || '—')}</td>
+      </tr>
+    `).join('');
+
+    const bodyHtml = `
+  <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="card"><div class="k">Ocorrências no relatório</div><div class="v">${total}</div></div>
+    <div class="card"><div class="k">Em aberto</div><div class="v">${abertos}</div></div>
+    <div class="card"><div class="k">Alta severidade</div><div class="v">${altaSeveridade}</div></div>
+  </div>
+
+  <h2>Relatório de Incidentes (CAT)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Tipo</th>
+        <th>Título</th>
+        <th>Área</th>
+        <th>Severidade</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows || '<tr><td colspan="6">Nenhum incidente encontrado.</td></tr>'}
+    </tbody>
+  </table>
+`;
+
+    if (openProfessionalReport('Relatório de Incidentes (CAT)', bodyHtml)) {
+      toast.success('Relatório de Incidentes (CAT) pronto para impressão/Salvar como PDF.');
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -715,9 +919,11 @@ export default function RelatoriosPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               { title: 'Relatório Mensal de Segurança', type: 'PDF', date: 'Mês atual', icon: FileText },
-              { title: 'Indicadores de Acidentes', type: 'XLSX', date: 'Ano atual', icon: BarChart3 },
+              { title: 'Ata de DDS', type: 'PDF', date: 'Consolidado', icon: FileText },
+              { title: 'Ficha de EPI (Consolidada)', type: 'PDF', date: 'Consolidado', icon: FileText },
+              { title: 'Relatório de Incidentes (CAT)', type: 'PDF', date: 'Consolidado', icon: AlertCircle },
               { title: 'Mapa de Riscos Operacionais', type: 'CSV', date: 'Atualizado', icon: AlertCircle },
-              { title: 'Certificados de Treinamento', type: 'ZIP', date: 'Acumulado', icon: CheckCircle2 },
+              { title: 'Certificados de Treinamento', type: 'CSV', date: 'Acumulado', icon: CheckCircle2 },
             ].map((report, i) => (
               <div key={i} className="p-4 rounded-xl border border-slate-100 flex items-center justify-between group hover:border-primary/20 hover:bg-slate-50 transition-all">
                 <div className="flex items-center gap-3">
