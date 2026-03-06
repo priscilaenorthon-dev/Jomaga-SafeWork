@@ -79,6 +79,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key
 
 # Use UMA das chaves abaixo (server-side):
+# OPENROUTER_API_KEY=sua-chave-openrouter
 GEMINI_API_KEY=sua-chave-google-ai-studio
 # GOOGLE_AI_STUDIO_API_KEY=sua-chave-google-ai-studio
 # GOOGLE_API_KEY=sua-chave-google-ai-studio
@@ -87,10 +88,13 @@ GEMINI_API_KEY=sua-chave-google-ai-studio
 # NEXT_PUBLIC_GEMINI_API_KEY=sua-chave-google-ai-studio
 # NEXT_PUBLIC_GOOGLE_AI_STUDIO_API_KEY=sua-chave-google-ai-studio
 
+# Opcional (OpenRouter):
+# OPENROUTER_MODEL=google/gemini-2.0-flash-001
+
 APP_URL=http://localhost:3000
 ```
 
-> Recomendação: prefira as variáveis server-side (`GEMINI_API_KEY`, `GOOGLE_AI_STUDIO_API_KEY`, `GOOGLE_API_KEY`).
+> Recomendação: prefira variáveis server-side (`OPENROUTER_API_KEY` ou `GEMINI_API_KEY`).
 
 ### 3) Banco de dados
 
@@ -123,7 +127,10 @@ No projeto da Vercel, configure em `Settings > Environment Variables`:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `GEMINI_API_KEY` (ou `GOOGLE_AI_STUDIO_API_KEY` / `GOOGLE_API_KEY`)
+- `OPENROUTER_API_KEY` (preferido no seu caso) ou `GEMINI_API_KEY`
+
+Opcional no OpenRouter:
+- `OPENROUTER_MODEL` (padrão: `google/gemini-2.0-flash-001`)
 
 Depois faça `Redeploy`.
 
