@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/Sidebar';
 import { Toaster } from 'sonner';
 
-const PUBLIC_ROUTES = ['/login', '/auth'];
+const PUBLIC_ROUTES = ['/login', '/auth', '/assinatura'];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
