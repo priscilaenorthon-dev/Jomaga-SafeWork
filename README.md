@@ -82,11 +82,15 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key
 GEMINI_API_KEY=sua-chave-google-ai-studio
 # GOOGLE_AI_STUDIO_API_KEY=sua-chave-google-ai-studio
 # GOOGLE_API_KEY=sua-chave-google-ai-studio
+# GOOGLE_GENERATIVE_AI_API_KEY=sua-chave-google-ai-studio
+# Compatibilidade (já aceito pela API):
+# NEXT_PUBLIC_GEMINI_API_KEY=sua-chave-google-ai-studio
+# NEXT_PUBLIC_GOOGLE_AI_STUDIO_API_KEY=sua-chave-google-ai-studio
 
 APP_URL=http://localhost:3000
 ```
 
-> Segurança: não use `NEXT_PUBLIC_` para chave de IA.
+> Recomendação: prefira as variáveis server-side (`GEMINI_API_KEY`, `GOOGLE_AI_STUDIO_API_KEY`, `GOOGLE_API_KEY`).
 
 ### 3) Banco de dados
 
@@ -138,10 +142,6 @@ components/
 	Header.tsx
 supabase/
 	migrations/
-		20260304000001_clean_schema.sql
-		20260304000002_documents_and_seed.sql
-		20260306000001_new_features.sql
-		20260306000002_signature_aso_training_seed.sql
 		20260306010000_baseline_schema.sql
 		20260306010001_baseline_seed_300_plus.sql
 ```

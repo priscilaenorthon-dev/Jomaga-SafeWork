@@ -12,12 +12,15 @@ export async function POST(request: NextRequest) {
     const apiKey = (
       process.env.GEMINI_API_KEY ||
       process.env.GOOGLE_AI_STUDIO_API_KEY ||
-      process.env.GOOGLE_API_KEY
+      process.env.GOOGLE_API_KEY ||
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+      process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
+      process.env.NEXT_PUBLIC_GOOGLE_AI_STUDIO_API_KEY
     )?.trim();
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'Chave de API não configurada. Defina GEMINI_API_KEY ou GOOGLE_AI_STUDIO_API_KEY nas variáveis de ambiente.' },
+        { error: 'Chave de API não configurada. Defina GEMINI_API_KEY, GOOGLE_AI_STUDIO_API_KEY ou GOOGLE_API_KEY nas variáveis de ambiente.' },
         { status: 500 }
       );
     }
