@@ -20,6 +20,7 @@ import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Header } from '@/components/Header';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase-client';
 
@@ -52,7 +53,7 @@ interface DashboardAlert {
   iconBg: string;
 }
 
-const StatCard = ({ title, value, change, icon: Icon, iconColor, bgColor, trend, loading }: { 
+const StatCard = ({ title, value, change, icon: Icon, iconColor, bgColor, trend, loading, onClick }: { 
   title: string, 
   value: string | number, 
   change: string, 
@@ -60,12 +61,25 @@ const StatCard = ({ title, value, change, icon: Icon, iconColor, bgColor, trend,
   iconColor: string, 
   bgColor: string,
   trend?: 'up' | 'down' | 'warning' | 'danger' | 'success',
-  loading?: boolean
+  loading?: boolean,
+  onClick?: () => void,
 }) => (
   <motion.div 
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
-    className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between min-h-[140px]"
+    onClick={onClick}
+    role={onClick ? 'button' : undefined}
+    tabIndex={onClick ? 0 : undefined}
+    onKeyDown={onClick ? (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onClick();
+      }
+    } : undefined}
+    className={cn(
+      'bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between min-h-[140px]',
+      onClick && 'cursor-pointer hover:border-primary/30 hover:bg-slate-50/40 transition-colors'
+    )}
   >
     <div className="flex justify-between items-start">
       <p className="text-sm font-semibold text-slate-500">{title}</p>
@@ -95,16 +109,31 @@ const StatCard = ({ title, value, change, icon: Icon, iconColor, bgColor, trend,
   </motion.div>
 );
 
-const AlertItem = ({ title, time, description, type, status, icon: Icon, iconBg }: {
+const AlertItem = ({ title, time, description, type, status, icon: Icon, iconBg, onClick }: {
   title: string,
   time: string,
   description: string,
   type: string,
   status: string,
   icon: any,
-  iconBg: string
+  iconBg: string,
+  onClick?: () => void,
 }) => (
-  <div className="flex flex-col sm:flex-row gap-4 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm group hover:border-primary/20 transition-colors">
+  <div
+    onClick={onClick}
+    role={onClick ? 'button' : undefined}
+    tabIndex={onClick ? 0 : undefined}
+    onKeyDown={onClick ? (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onClick();
+      }
+    } : undefined}
+    className={cn(
+      'flex flex-col sm:flex-row gap-4 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm group hover:border-primary/20 transition-colors',
+      onClick && 'cursor-pointer'
+    )}
+  >
     <div className={cn("w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center shrink-0", iconBg)}>
       <Icon size={24} className="sm:size-32 opacity-80" />
     </div>
@@ -128,6 +157,7 @@ const AlertItem = ({ title, time, description, type, status, icon: Icon, iconBg 
 );
 
 export default function Dashboard() {
+  const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = React.useState(true);
   const [stats, setStats] = React.useState<DashboardStats>({
@@ -153,6 +183,19 @@ export default function Dashboard() {
   React.useEffect(() => {
     void fetchStats();
   }, []);
+
+  const openReport = (reportTitle: string) => {
+    router.push(`/relatorios?report=${encodeURIComponent(reportTitle)}`);
+  };
+
+  const reportByAlertType: Record<string, string> = {
+    Inventário: 'Ficha de EPI (Consolidada)',
+    ASO: 'Relatório Mensal de Segurança',
+    Incidente: 'Relatório de Incidentes (CAT)',
+    EPI: 'Ficha de EPI (Consolidada)',
+    Treinamento: 'Certificados de Treinamento',
+    Conformidade: 'Relatório Mensal de Segurança',
+  };
 
   const fetchStats = async () => {
     try {
@@ -359,6 +402,7 @@ export default function Dashboard() {
             bgColor="bg-[#1A237E]/10"
             trend="success"
             loading={loading}
+            onClick={() => openReport('Relatório Mensal de Segurança')}
           />
           <StatCard
             title="Cobertura de Assinatura"
@@ -369,6 +413,7 @@ export default function Dashboard() {
             bgColor="bg-blue-50"
             trend={stats.signatureCoverage >= 90 ? 'success' : 'warning'}
             loading={loading}
+            onClick={() => openReport('Relatório Mensal de Segurança')}
           />
           <StatCard
             title="Conformidade DDS (30d)"
@@ -379,6 +424,7 @@ export default function Dashboard() {
             bgColor="bg-green-50"
             trend={stats.ddsConformity >= 80 ? 'success' : 'warning'}
             loading={loading}
+            onClick={() => openReport('Ata de DDS')}
           />
           <StatCard
             title="Pendências de ASO"
@@ -389,6 +435,7 @@ export default function Dashboard() {
             bgColor="bg-orange-50"
             trend={stats.asoAlerts > 0 ? 'warning' : 'success'}
             loading={loading}
+            onClick={() => openReport('Relatório Mensal de Segurança')}
           />
           <StatCard
             title="Estoque Crítico de EPI"
@@ -399,6 +446,7 @@ export default function Dashboard() {
             bgColor="bg-red-50"
             trend={stats.inventoryCritical > 0 ? 'danger' : 'success'}
             loading={loading}
+            onClick={() => openReport('Ficha de EPI (Consolidada)')}
           />
           <StatCard
             title="Incidentes em Aberto"
@@ -409,6 +457,7 @@ export default function Dashboard() {
             bgColor="bg-red-50"
             trend={stats.openIncidents > 0 ? 'danger' : 'success'}
             loading={loading}
+            onClick={() => openReport('Relatório de Incidentes (CAT)')}
           />
         </div>
 
@@ -432,6 +481,7 @@ export default function Dashboard() {
                   status={alert.status}
                   icon={alert.icon}
                   iconBg={alert.iconBg}
+                  onClick={() => openReport(reportByAlertType[alert.type] || 'Relatório Mensal de Segurança')}
                 />
               ))}
             </div>

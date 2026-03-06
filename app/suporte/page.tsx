@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Header } from '@/components/Header';
-import { MessageCircle, Phone, Rocket, X, Bell, ClipboardCheck, Calendar, BarChart3, Camera, Building2, Smartphone, Mail, Bot, FileText, Shield, Users, Upload, PenLine, LayoutDashboard, ArrowLeft, Zap, Target, TrendingUp, ChevronRight, BookOpen, HardHat, Stethoscope, Settings, Package, TableProperties, ShieldAlert, CheckSquare, Sparkles, CheckCircle2 } from 'lucide-react';
+import { MessageCircle, Phone, Rocket, X, Bell, ClipboardCheck, Calendar, BarChart3, Camera, Building2, Smartphone, Mail, Bot, FileText, Shield, Users, Upload, PenLine, LayoutDashboard, ArrowLeft, Zap, Target, TrendingUp, ChevronRight, BookOpen, HardHat, GraduationCap, Stethoscope, Settings, Package, TableProperties, ShieldAlert, CheckSquare, Sparkles, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 

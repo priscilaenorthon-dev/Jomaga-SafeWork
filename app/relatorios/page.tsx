@@ -758,6 +758,10 @@ export default function RelatoriosPage() {
     }
   };
 
+  const openDirectReport = (reportTitle: string) => {
+    void handleDownload(reportTitle);
+  };
+
   return (
     <>
       <Header title="Relatórios e Indicadores" />
@@ -777,6 +781,7 @@ export default function RelatoriosPage() {
               icon: AlertCircle,
               color: kpis.incidentesAbertos === 0 ? 'text-green-600' : 'text-red-600',
               bg: kpis.incidentesAbertos === 0 ? 'bg-green-50' : 'bg-red-50',
+              reportTitle: 'Relatório de Incidentes (CAT)',
             },
             {
               label: 'Treinamentos Concluídos',
@@ -785,6 +790,7 @@ export default function RelatoriosPage() {
               icon: CheckCircle2,
               color: 'text-blue-600',
               bg: 'bg-blue-50',
+              reportTitle: 'Certificados de Treinamento',
             },
             {
               label: 'Conformidade de DDS',
@@ -793,6 +799,7 @@ export default function RelatoriosPage() {
               icon: Calendar,
               color: 'text-orange-600',
               bg: 'bg-orange-50',
+              reportTitle: 'Ata de DDS',
             },
             {
               label: 'Cobertura LGPD',
@@ -801,6 +808,7 @@ export default function RelatoriosPage() {
               icon: Users,
               color: kpis.lgpdCoverage >= 90 ? 'text-green-600' : 'text-orange-600',
               bg: kpis.lgpdCoverage >= 90 ? 'bg-green-50' : 'bg-orange-50',
+              reportTitle: 'Relatório Mensal de Segurança',
             },
             {
               label: 'Alertas de ASO',
@@ -809,6 +817,7 @@ export default function RelatoriosPage() {
               icon: Stethoscope,
               color: kpis.asoAlerts > 0 ? 'text-red-600' : 'text-green-600',
               bg: kpis.asoAlerts > 0 ? 'bg-red-50' : 'bg-green-50',
+              reportTitle: 'Relatório Mensal de Segurança',
             },
             {
               label: 'Estoque Crítico de EPI',
@@ -817,6 +826,7 @@ export default function RelatoriosPage() {
               icon: Package,
               color: kpis.inventoryCritical > 0 ? 'text-red-600' : 'text-green-600',
               bg: kpis.inventoryCritical > 0 ? 'bg-red-50' : 'bg-green-50',
+              reportTitle: 'Ficha de EPI (Consolidada)',
             },
           ].map((kpi, i) => (
             <motion.div
@@ -824,7 +834,16 @@ export default function RelatoriosPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm"
+              onClick={() => openDirectReport(kpi.reportTitle)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  openDirectReport(kpi.reportTitle);
+                }
+              }}
+              className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm cursor-pointer hover:border-primary/30 hover:bg-slate-50 transition-colors"
             >
               <div className="flex items-center justify-between mb-3">
                 <div className={`p-2 ${kpi.bg} ${kpi.color} rounded-lg`}>
@@ -925,7 +944,19 @@ export default function RelatoriosPage() {
               { title: 'Mapa de Riscos Operacionais', type: 'CSV', date: 'Atualizado', icon: AlertCircle },
               { title: 'Certificados de Treinamento', type: 'CSV', date: 'Acumulado', icon: CheckCircle2 },
             ].map((report, i) => (
-              <div key={i} className="p-4 rounded-xl border border-slate-100 flex items-center justify-between group hover:border-primary/20 hover:bg-slate-50 transition-all">
+              <div
+                key={i}
+                onClick={() => openDirectReport(report.title)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    openDirectReport(report.title);
+                  }
+                }}
+                className="p-4 rounded-xl border border-slate-100 flex items-center justify-between group hover:border-primary/20 hover:bg-slate-50 transition-all cursor-pointer"
+              >
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-slate-100 text-slate-500 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors">
                     <report.icon size={20} />
@@ -935,7 +966,13 @@ export default function RelatoriosPage() {
                     <p className="text-[10px] text-slate-400 font-medium uppercase">{report.type} • {report.date}</p>
                   </div>
                 </div>
-                <button onClick={() => handleDownload(report.title)} className="p-2 text-slate-400 hover:text-primary transition-colors">
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void handleDownload(report.title);
+                  }}
+                  className="p-2 text-slate-400 hover:text-primary transition-colors"
+                >
                   <Download size={18} />
                 </button>
               </div>
@@ -955,7 +992,19 @@ export default function RelatoriosPage() {
 
             <div className="space-y-2">
               {documents.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-50 hover:bg-slate-50 transition-all group">
+                <div
+                  key={doc.id}
+                  onClick={() => void handleDownload(doc.name, doc.storage_path)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      void handleDownload(doc.name, doc.storage_path);
+                    }
+                  }}
+                  className="flex items-center justify-between p-3 rounded-xl border border-slate-50 hover:bg-slate-50 transition-all group cursor-pointer"
+                >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-slate-100 text-slate-500 rounded-lg">
                       <FileText size={16} />
@@ -967,13 +1016,22 @@ export default function RelatoriosPage() {
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => handleDownload(doc.name, doc.storage_path)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleDownload(doc.name, doc.storage_path);
+                      }}
                       disabled={downloadingId === doc.id}
                       className="p-2 text-slate-400 hover:text-primary hover:bg-white rounded-lg transition-all disabled:opacity-50"
                     >
                       {downloadingId === doc.id ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                     </button>
-                    <button onClick={() => setConfirmDeleteDocId(doc.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg transition-all">
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setConfirmDeleteDocId(doc.id);
+                      }}
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg transition-all"
+                    >
                       <Trash2 size={16} />
                     </button>
                   </div>
