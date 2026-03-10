@@ -65,6 +65,23 @@ const moreSheetItems = [
   { icon: HelpCircle, label: 'Suporte', href: '/suporte' },
 ];
 
+function normalizeLogoUrl(value?: string) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return '/icon';
+
+  if (
+    raw.startsWith('/') ||
+    raw.startsWith('http://') ||
+    raw.startsWith('https://') ||
+    raw.startsWith('data:image/') ||
+    raw.startsWith('blob:')
+  ) {
+    return raw;
+  }
+
+  return '/icon';
+}
+
 function DesktopMenuItem({ item, pathname }: { item: typeof menuItems[0]; pathname: string }) {
   const [expanded, setExpanded] = useState(false);
   const isActive = pathname === item.href || (item.sub && item.sub.some(s => pathname === s.href));
@@ -114,13 +131,14 @@ function DesktopMenuItem({ item, pathname }: { item: typeof menuItems[0]; pathna
   );
 }
 
-const DesktopSidebarContent = ({ pathname, companyName, companyLogo }: { pathname: string; companyName: string; companyLogo: string }) => (
+const DesktopSidebarContent = ({ pathname, companyName, companyLogo, onLogoError }: { pathname: string; companyName: string; companyLogo: string; onLogoError: () => void }) => (
   <div className="flex flex-col h-full bg-[#1A237E] text-white">
     <div className="p-6 flex items-center gap-3">
       <img
         src={companyLogo || '/icon'}
         alt="Logo da empresa"
         className="w-[38px] h-[38px] object-contain"
+        onError={onLogoError}
       />
       <div>
         <h1 className="text-lg font-bold leading-tight tracking-tight">{companyName}</h1>
@@ -165,7 +183,7 @@ export function Sidebar() {
         try {
           const settings = JSON.parse(saved);
           if (settings.companyName) setCompanyName(settings.companyName);
-          if (settings.companyLogo) setCompanyLogo(settings.companyLogo);
+          setCompanyLogo(normalizeLogoUrl(settings.companyLogo));
         } catch {}
       }
     };
@@ -187,7 +205,12 @@ export function Sidebar() {
     <>
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-64 shrink-0 h-screen sticky top-0">
-        <DesktopSidebarContent pathname={pathname} companyName={companyName} companyLogo={companyLogo} />
+        <DesktopSidebarContent
+          pathname={pathname}
+          companyName={companyName}
+          companyLogo={companyLogo}
+          onLogoError={() => setCompanyLogo('/icon')}
+        />
       </aside>
 
       {/* Mobile Bottom Navigation Bar */}

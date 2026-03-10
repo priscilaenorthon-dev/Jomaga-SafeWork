@@ -9,6 +9,23 @@ import { toast } from 'sonner';
 
 const ADMIN_EMAIL = 'admin@jomaga.com.br';
 
+function normalizeLogoUrl(value?: string) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return '/icon';
+
+  if (
+    raw.startsWith('/') ||
+    raw.startsWith('http://') ||
+    raw.startsWith('https://') ||
+    raw.startsWith('data:image/') ||
+    raw.startsWith('blob:')
+  ) {
+    return raw;
+  }
+
+  return '/icon';
+}
+
 export default function LoginPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -31,9 +48,9 @@ export default function LoginPage() {
 
         const parsed = JSON.parse(saved);
         const configuredName = typeof parsed?.companyName === 'string' ? parsed.companyName.trim() : '';
-        const configuredLogo = typeof parsed?.companyLogo === 'string' ? parsed.companyLogo.trim() : '';
+        const configuredLogo = normalizeLogoUrl(parsed?.companyLogo);
         setCompanyName(configuredName || 'SafeWork');
-        setCompanyLogo(configuredLogo || '/icon');
+        setCompanyLogo(configuredLogo);
       } catch {
         setCompanyName('SafeWork');
         setCompanyLogo('/icon');
@@ -105,6 +122,11 @@ export default function LoginPage() {
                 src={companyLogo || '/icon'}
                 alt="Logo da empresa"
                 className="w-14 h-14 object-contain"
+                onError={(event) => {
+                  const target = event.currentTarget;
+                  if (target.src.endsWith('/icon')) return;
+                  setCompanyLogo('/icon');
+                }}
               />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">{companyName}</h1>
