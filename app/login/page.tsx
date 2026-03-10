@@ -66,6 +66,11 @@ export default function LoginPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.title = companyName?.trim() || 'SafeWork';
+  }, [companyName]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 

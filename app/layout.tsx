@@ -9,7 +9,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: 'Jomaga SafeWork',
+  title: 'SafeWork',
   description: 'Sistema de gestão de segurança industrial',
   manifest: '/manifest.json',
   icons: {
