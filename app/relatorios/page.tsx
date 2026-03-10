@@ -66,11 +66,11 @@ interface CompanyBranding {
   companyLogo: string;
 }
 
-const DEFAULT_COMPANY_LOGO = '/logo-sistema.png';
+const DEFAULT_COMPANY_LOGO = '/icon-192.png';
 
 function normalizeLogoUrl(value?: string) {
   const raw = typeof value === 'string' ? value.trim() : '';
-  if (!raw || raw === '/icon' || raw === '/icon-192.png' || raw === '/icon-512.png') return DEFAULT_COMPANY_LOGO;
+  if (!raw || raw === '/icon' || raw === '/icon-192.png' || raw === '/icon-512.png' || raw === '/logo-sistema.png') return DEFAULT_COMPANY_LOGO;
   return raw;
 }
 
