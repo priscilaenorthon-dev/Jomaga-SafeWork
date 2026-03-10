@@ -25,7 +25,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       try {
         const { data } = await supabase
           .from('company_settings')
-          .select('company_name, logo_url')
+          .select('company_name, logo_url, cnpj')
           .eq('id', 1)
           .maybeSingle();
 
@@ -34,6 +34,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         const merged = {
           companyName: data.company_name || 'SafeWork',
           companyLogo: data.logo_url || '/icon',
+          cnpj: data.cnpj || '',
         };
 
         localStorage.setItem('jomaga_company_settings', JSON.stringify(merged));

@@ -33,6 +33,8 @@ interface Collaborator {
   name: string;
   email: string;
   role: string;
+  sector?: string;
+  admission_date?: string;
   registration: string;
   status: 'Ativo' | 'Inativo';
   contract_type: 'onshore' | 'offshore';
@@ -151,6 +153,8 @@ export default function CollaboratorsPage() {
     name: '',
     email: '',
     role: '',
+    sector: '',
+    admission_date: '',
     registration: '',
     status: 'Ativo',
     contract_type: 'onshore',
@@ -193,6 +197,8 @@ export default function CollaboratorsPage() {
         name: collaborator.name,
         email: collaborator.email,
         role: collaborator.role,
+        sector: collaborator.sector || '',
+        admission_date: collaborator.admission_date || '',
         registration: collaborator.registration,
         status: collaborator.status,
         contract_type: collaborator.contract_type || 'onshore',
@@ -202,7 +208,7 @@ export default function CollaboratorsPage() {
       });
     } else {
       setEditingCollaborator(null);
-      setFormData({ name: '', email: '', role: '', registration: '', status: 'Ativo', contract_type: 'onshore', digital_signature: '', lgpd_consent: false });
+      setFormData({ name: '', email: '', role: '', sector: '', admission_date: '', registration: '', status: 'Ativo', contract_type: 'onshore', digital_signature: '', lgpd_consent: false });
     }
     setIsModalOpen(true);
   };
@@ -220,6 +226,8 @@ export default function CollaboratorsPage() {
         name: formData.name,
         email: formData.email,
         role: formData.role,
+        sector: formData.sector || null,
+        admission_date: formData.admission_date || null,
         registration: formData.registration,
         status: formData.status,
         contract_type: formData.contract_type,
@@ -369,6 +377,7 @@ export default function CollaboratorsPage() {
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Colaborador</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Matrícula</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Cargo</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Setor</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Contrato</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">LGPD</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Status</th>
@@ -378,7 +387,7 @@ export default function CollaboratorsPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center">
+                    <td colSpan={8} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center gap-2 text-slate-500">
                         <Loader2 className="animate-spin" size={24} />
                         <span className="text-sm">Carregando colaboradores...</span>
@@ -415,6 +424,7 @@ export default function CollaboratorsPage() {
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-600 font-mono">{c.registration}</td>
                         <td className="px-6 py-4 text-sm text-slate-600">{c.role}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600">{c.sector || '—'}</td>
                         <td className="px-6 py-4">
                           <span className={cn(
                             "flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase w-fit",
@@ -472,7 +482,7 @@ export default function CollaboratorsPage() {
                 )}
                 {!loading && filteredCollaborators.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                       Nenhum colaborador encontrado.
                     </td>
                   </tr>
@@ -561,6 +571,30 @@ export default function CollaboratorsPage() {
                       className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
                       value={formData.role}
                       onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+                      <Briefcase size={14} /> Setor
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Produção"
+                      className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      value={formData.sector || ''}
+                      onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Data de Admissão</label>
+                    <input
+                      type="date"
+                      className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      value={formData.admission_date || ''}
+                      onChange={(e) => setFormData({ ...formData, admission_date: e.target.value })}
                     />
                   </div>
                   <div className="space-y-1">

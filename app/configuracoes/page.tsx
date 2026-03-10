@@ -34,6 +34,7 @@ interface NotificationSettings {
 interface CompanySettings {
   companyName: string;
   companyLogo: string;
+  cnpj: string;
 }
 
 const defaultUserProfile: LocalUserProfile = {
@@ -56,6 +57,7 @@ const defaultNotificationSettings: NotificationSettings = {
 const defaultCompanySettings: CompanySettings = {
   companyName: 'Jomaga',
   companyLogo: '/icon',
+  cnpj: '',
 };
 
 function normalizeUserProfile(value: any): LocalUserProfile {
@@ -114,7 +116,7 @@ export default function ConfiguracoesPage() {
       try {
         const { data, error } = await supabase
           .from('company_settings')
-          .select('company_name, logo_url')
+          .select('company_name, logo_url, cnpj')
           .eq('id', 1)
           .maybeSingle();
 
@@ -123,6 +125,7 @@ export default function ConfiguracoesPage() {
         const merged = {
           companyName: data.company_name || defaultCompanySettings.companyName,
           companyLogo: data.logo_url || defaultCompanySettings.companyLogo,
+          cnpj: data.cnpj || defaultCompanySettings.cnpj,
         };
 
         setCompanySettings(merged);
@@ -206,6 +209,7 @@ export default function ConfiguracoesPage() {
               id: 1,
               company_name: companySettings.companyName,
               logo_url: companySettings.companyLogo,
+              cnpj: companySettings.cnpj || null,
               updated_by: updatedBy,
             },
             onConflict: 'id',
@@ -354,6 +358,15 @@ export default function ConfiguracoesPage() {
                         value={companySettings.companyName}
                         onChange={e => setCompanySettings({ ...companySettings, companyName: e.target.value })}
                         placeholder="Ex: Minha Empresa Ltda"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase">CNPJ</label>
+                      <input
+                        value={companySettings.cnpj}
+                        onChange={e => setCompanySettings({ ...companySettings, cnpj: e.target.value })}
+                        placeholder="Ex: 00.000.000/0001-00"
                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                       />
                     </div>
