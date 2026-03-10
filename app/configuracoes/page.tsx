@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase-client';
 import { executeMutationWithOfflineQueue } from '@/lib/offline-queue';
 
 type SettingType = 'perfil' | 'notificacoes' | 'seguranca' | 'idioma' | 'empresa' | null;
-const DEFAULT_COMPANY_LOGO = '/icon-192.png';
+const DEFAULT_COMPANY_LOGO = '/logo-modelos/safework-02-capacete-check.svg';
 
 type UserGender = 'male' | 'female';
 

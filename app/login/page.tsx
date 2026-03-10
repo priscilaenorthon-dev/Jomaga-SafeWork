@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 const ADMIN_EMAIL = 'admin@jomaga.com.br';
-const DEFAULT_COMPANY_LOGO = '/icon-192.png';
+const DEFAULT_COMPANY_LOGO = '/logo-modelos/safework-02-capacete-check.svg';
 
 function normalizeLogoUrl(value?: string) {
   const raw = typeof value === 'string' ? value.trim() : '';
@@ -120,7 +120,7 @@ export default function LoginPage() {
           <div className="bg-gradient-to-r from-[#1A237E] to-[#3949AB] p-8 text-white text-center">
             <div className="flex items-center justify-center mb-4">
               <img
-                src={companyLogo || '/icon'}
+                src={companyLogo || DEFAULT_COMPANY_LOGO}
                 alt="Logo da empresa"
                 className="w-14 h-14 object-contain"
                 onError={(event) => {

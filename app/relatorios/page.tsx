@@ -66,7 +66,7 @@ interface CompanyBranding {
   companyLogo: string;
 }
 
-const DEFAULT_COMPANY_LOGO = '/icon-192.png';
+const DEFAULT_COMPANY_LOGO = '/logo-modelos/safework-02-capacete-check.svg';
 
 function normalizeLogoUrl(value?: string) {
   const raw = typeof value === 'string' ? value.trim() : '';

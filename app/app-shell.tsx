@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { getOfflineQueueCount, OFFLINE_QUEUE_EVENT, setupOfflineQueueSync } from '@/lib/offline-queue';
 
 const PUBLIC_ROUTES = ['/login', '/auth', '/assinatura'];
-const DEFAULT_COMPANY_LOGO = '/icon-192.png';
+const DEFAULT_COMPANY_LOGO = '/logo-modelos/safework-02-capacete-check.svg';
 
 function normalizeLogoUrl(value?: string | null) {
   const raw = typeof value === 'string' ? value.trim() : '';
