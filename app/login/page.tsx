@@ -8,11 +8,11 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 const ADMIN_EMAIL = 'admin@jomaga.com.br';
-const DEFAULT_COMPANY_LOGO = '/logo-modelos/safework-02-capacete-check.svg';
+const DEFAULT_COMPANY_LOGO = '/icon-192.png';
 
 function normalizeLogoUrl(value?: string) {
   const raw = typeof value === 'string' ? value.trim() : '';
-  if (!raw || raw === '/icon' || raw === '/icon-192.png' || raw === '/icon-512.png' || raw === '/logo-sistema.png') return DEFAULT_COMPANY_LOGO;
+  if (!raw || raw === '/icon' || raw === '/icon-192.png' || raw === '/icon-512.png' || raw === '/logo-sistema.png' || raw === '/logo-modelos/safework-02-capacete-check.svg') return DEFAULT_COMPANY_LOGO;
 
   if (
     raw.startsWith('/') ||
