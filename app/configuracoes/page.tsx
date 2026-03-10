@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase-client';
 import { executeMutationWithOfflineQueue } from '@/lib/offline-queue';
 
 type SettingType = 'perfil' | 'notificacoes' | 'seguranca' | 'idioma' | 'empresa' | null;
-const DEFAULT_COMPANY_LOGO = '/icon-192.png';
+const DEFAULT_COMPANY_LOGO = '/logo-sistema.png';
 
 type UserGender = 'male' | 'female';
 
@@ -63,7 +63,7 @@ const defaultCompanySettings: CompanySettings = {
 
 function normalizeLogoUrl(value?: string) {
   const raw = typeof value === 'string' ? value.trim() : '';
-  if (!raw || raw === '/icon') return DEFAULT_COMPANY_LOGO;
+  if (!raw || raw === '/icon' || raw === '/icon-192.png' || raw === '/icon-512.png') return DEFAULT_COMPANY_LOGO;
   return raw;
 }
 

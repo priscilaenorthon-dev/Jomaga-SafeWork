@@ -65,11 +65,11 @@ const moreSheetItems = [
   { icon: HelpCircle, label: 'Suporte', href: '/suporte' },
 ];
 
-const DEFAULT_COMPANY_LOGO = '/icon-192.png';
+const DEFAULT_COMPANY_LOGO = '/logo-sistema.png';
 
 function normalizeLogoUrl(value?: string) {
   const raw = typeof value === 'string' ? value.trim() : '';
-  if (!raw || raw === '/icon') return DEFAULT_COMPANY_LOGO;
+  if (!raw || raw === '/icon' || raw === '/icon-192.png' || raw === '/icon-512.png') return DEFAULT_COMPANY_LOGO;
 
   if (
     raw.startsWith('/') ||

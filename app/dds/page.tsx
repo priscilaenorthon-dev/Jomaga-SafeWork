@@ -192,10 +192,10 @@ export default function DDSPage() {
         const parsed = s ? JSON.parse(s) : {};
         return {
           companyName: parsed?.companyName || 'SafeWork',
-          companyLogo: parsed?.companyLogo && parsed?.companyLogo !== '/icon' ? parsed.companyLogo : '/icon-192.png',
+          companyLogo: parsed?.companyLogo && !['/icon', '/icon-192.png', '/icon-512.png'].includes(parsed.companyLogo) ? parsed.companyLogo : '/logo-sistema.png',
         };
       } catch {
-        return { companyName: 'SafeWork', companyLogo: '/icon-192.png' };
+        return { companyName: 'SafeWork', companyLogo: '/logo-sistema.png' };
       }
     })();
 

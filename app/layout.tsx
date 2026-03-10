@@ -13,9 +13,9 @@ export const metadata: Metadata = {
   description: 'Sistema de gestão de segurança industrial',
   manifest: '/manifest.json',
   icons: {
-    icon: '/icon-192.png',
-    apple: '/icon-192.png',
-    shortcut: '/icon-192.png',
+    icon: '/logo-sistema.png',
+    apple: '/logo-sistema.png',
+    shortcut: '/logo-sistema.png',
   },
   appleWebApp: {
     capable: true,
@@ -33,8 +33,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={`${manrope.variable}`}>
       <head>
         <meta name="theme-color" content="#1A237E" />
-        <link rel="icon" href="/icon-192.png" sizes="192x192" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="icon" href="/logo-sistema.png" sizes="192x192" />
+        <link rel="apple-touch-icon" href="/logo-sistema.png" />
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <AppShell>
