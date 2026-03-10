@@ -81,6 +81,17 @@ function normalizeUserProfile(value: any): LocalUserProfile {
   };
 }
 
+function resolveFallbackNameFromAuth(user: any) {
+  const metadataName = typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '';
+  if (metadataName) return metadataName;
+
+  const emailPrefix = typeof user?.email === 'string' && user.email.includes('@')
+    ? user.email.split('@')[0].trim()
+    : '';
+
+  return emailPrefix || defaultUserProfile.name;
+}
+
 export default function ConfiguracoesPage() {
   const supabase = useMemo(() => createClient(), []);
   const [activeModal, setActiveModal] = useState<SettingType>(null);
@@ -89,7 +100,13 @@ export default function ConfiguracoesPage() {
   const [userProfile, setUserProfile] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jomaga_user_profile');
-      return saved ? normalizeUserProfile(JSON.parse(saved)) : defaultUserProfile;
+      if (!saved) return defaultUserProfile;
+
+      try {
+        return normalizeUserProfile(JSON.parse(saved));
+      } catch {
+        return defaultUserProfile;
+      }
     }
     return defaultUserProfile;
   });
@@ -117,6 +134,43 @@ export default function ConfiguracoesPage() {
     }
     return defaultCompanySettings;
   });
+
+  useEffect(() => {
+    const loadUserProfileFromDatabase = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user?.id) return;
+
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('full_name, role, gender')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profileError) return;
+
+        const metadataCorporateEmail =
+          typeof user.user_metadata?.corporate_email === 'string'
+            ? user.user_metadata.corporate_email.trim()
+            : '';
+
+        const mergedProfile = normalizeUserProfile({
+          name: profileData?.full_name || resolveFallbackNameFromAuth(user),
+          email: metadataCorporateEmail || user.email || '',
+          role: profileData?.role || defaultUserProfile.role,
+          gender: profileData?.gender || defaultUserProfile.gender,
+        });
+
+        setUserProfile(mergedProfile);
+        localStorage.setItem('jomaga_user_profile', JSON.stringify(mergedProfile));
+        window.dispatchEvent(new Event('user-profile-updated'));
+      } catch {
+        // fallback to local storage already loaded
+      }
+    };
+
+    loadUserProfileFromDatabase();
+  }, [supabase]);
 
   useEffect(() => {
     const loadCompanyFromDatabase = async () => {
@@ -164,7 +218,7 @@ export default function ConfiguracoesPage() {
       const { data } = supabase.storage.from('branding').getPublicUrl(path);
       const logoUrl = data.publicUrl;
 
-      setCompanySettings(prev => ({ ...prev, companyLogo: logoUrl }));
+      setCompanySettings((prev: CompanySettings) => ({ ...prev, companyLogo: logoUrl }));
       toast.success('Logo enviada com sucesso!');
     } catch (error: any) {
       toast.error(error?.message || 'Não foi possível enviar a logo.');
@@ -179,6 +233,45 @@ export default function ConfiguracoesPage() {
       if (activeModal === 'perfil') {
         localStorage.setItem('jomaga_user_profile', JSON.stringify(userProfile));
         window.dispatchEvent(new Event('user-profile-updated'));
+
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user?.id) {
+          const profilePayload = {
+            id: user.id,
+            full_name: userProfile.name.trim() || null,
+            role: userProfile.role.trim() || defaultUserProfile.role,
+            gender: userProfile.gender,
+          };
+
+          const result = await executeMutationWithOfflineQueue({
+            supabase,
+            operation: {
+              table: 'profiles',
+              action: 'upsert',
+              payload: profilePayload,
+              onConflict: 'id',
+            },
+          });
+
+          if (result.status === 'error') throw result.error;
+          if (result.status === 'queued') {
+            toast.success('Sem conexão: perfil enfileirado para sincronizar depois.');
+          }
+
+          if (navigator.onLine) {
+            const metadataPayload: Record<string, any> = {
+              full_name: userProfile.name.trim() || null,
+              corporate_email: userProfile.email.trim() || null,
+              gender: userProfile.gender,
+            };
+
+            const { error: metadataError } = await supabase.auth.updateUser({ data: metadataPayload });
+            if (metadataError) {
+              toast.error('Perfil salvo, mas não foi possível atualizar metadados de login.');
+            }
+          }
+        }
       } else if (activeModal === 'notificacoes') {
         localStorage.setItem('jomaga_notification_settings', JSON.stringify(notificationSettings));
         window.dispatchEvent(new Event('notification-settings-updated'));
@@ -218,6 +311,7 @@ export default function ConfiguracoesPage() {
               logo_url: companySettings.companyLogo,
               cnpj: companySettings.cnpj || null,
               updated_by: updatedBy,
+              updated_at: new Date().toISOString(),
             },
             onConflict: 'id',
           },
@@ -324,7 +418,7 @@ export default function ConfiguracoesPage() {
                           src={companySettings.companyLogo || '/icon'}
                           alt="Logo da empresa"
                           className="w-14 h-14 rounded-lg object-contain"
-                          onError={() => setCompanySettings(prev => ({ ...prev, companyLogo: DEFAULT_COMPANY_LOGO }))}
+                          onError={() => setCompanySettings((prev: CompanySettings) => ({ ...prev, companyLogo: DEFAULT_COMPANY_LOGO }))}
                         />
                         <div className="flex-1 space-y-2">
                           <input

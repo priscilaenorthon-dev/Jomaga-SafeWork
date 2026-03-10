@@ -33,12 +33,14 @@ type UserGender = 'male' | 'female';
 
 interface UserProfile {
   name: string;
+  email: string;
   role: string;
   gender: UserGender;
 }
 
 const defaultUserProfile: UserProfile = {
   name: 'Perfil sem nome',
+  email: '',
   role: 'Técnico de Segurança',
   gender: 'male',
 };
@@ -66,11 +68,13 @@ function loadNotificationSettings(): NotificationSettings {
 
 function normalizeUserProfile(value: any): UserProfile {
   const rawName = typeof value?.name === 'string' ? value.name.trim() : '';
+  const rawEmail = typeof value?.email === 'string' ? value.email.trim() : '';
   const rawRole = typeof value?.role === 'string' ? value.role.trim() : '';
   const rawGender = value?.gender === 'female' ? 'female' : 'male';
 
   return {
     name: rawName && rawName.toLowerCase() !== 'usuário' ? rawName : defaultUserProfile.name,
+    email: rawEmail,
     role: rawRole || defaultUserProfile.role,
     gender: rawGender,
   };
@@ -85,7 +89,12 @@ export function Header({ title }: { title: string }) {
   const [userProfile, setUserProfile] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jomaga_user_profile');
-      return saved ? normalizeUserProfile(JSON.parse(saved)) : defaultUserProfile;
+      if (!saved) return defaultUserProfile;
+      try {
+        return normalizeUserProfile(JSON.parse(saved));
+      } catch {
+        return defaultUserProfile;
+      }
     }
     return defaultUserProfile;
   });
@@ -103,16 +112,39 @@ export function Header({ title }: { title: string }) {
         : '';
       const fallbackName = authName || (userEmail ? userEmail.split('@')[0] : '');
 
-      if (fallbackName) {
-        setUserProfile((previous) => {
-          const resolved = normalizeUserProfile({
-            ...previous,
-            name: previous.name === defaultUserProfile.name ? fallbackName : previous.name,
-          });
-          localStorage.setItem('jomaga_user_profile', JSON.stringify(resolved));
-          return resolved;
-        });
+      let savedProfile: UserProfile = defaultUserProfile;
+      const saved = localStorage.getItem('jomaga_user_profile');
+      if (saved) {
+        try {
+          savedProfile = normalizeUserProfile(JSON.parse(saved));
+        } catch {
+          savedProfile = defaultUserProfile;
+        }
       }
+
+      let dbProfile: { full_name?: string | null; role?: string | null; gender?: string | null } | null = null;
+      if (user?.id) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name, role, gender')
+          .eq('id', user.id)
+          .maybeSingle();
+        dbProfile = data;
+      }
+
+      const metadataCorporateEmail = typeof user?.user_metadata?.corporate_email === 'string'
+        ? user.user_metadata.corporate_email.trim()
+        : '';
+
+      const resolved = normalizeUserProfile({
+        name: dbProfile?.full_name || (savedProfile.name !== defaultUserProfile.name ? savedProfile.name : fallbackName),
+        email: savedProfile.email || metadataCorporateEmail || userEmail || '',
+        role: dbProfile?.role || savedProfile.role,
+        gender: dbProfile?.gender || savedProfile.gender,
+      });
+
+      setUserProfile(resolved);
+      localStorage.setItem('jomaga_user_profile', JSON.stringify(resolved));
     };
     init();
     const initialSettings = loadNotificationSettings();
