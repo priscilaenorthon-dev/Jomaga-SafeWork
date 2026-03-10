@@ -118,11 +118,11 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-[#1A237E] to-[#3949AB] p-8 text-white text-center">
-            <div className="flex items-center justify-center mb-5">
+            <div className="flex items-center justify-center mb-4">
               <img
-                src={companyLogo || DEFAULT_COMPANY_LOGO}
+                src={companyLogo || '/icon'}
                 alt="Logo da empresa"
-                className="w-24 h-24 object-contain mix-blend-multiply drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)]"
+                className="w-14 h-14 object-contain"
                 onError={(event) => {
                   const target = event.currentTarget;
                   if (target.src.includes(DEFAULT_COMPANY_LOGO)) return;
