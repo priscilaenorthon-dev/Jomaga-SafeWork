@@ -139,7 +139,7 @@ const DesktopSidebarContent = ({ pathname, companyName, companyLogo, onLogoError
       <img
         src={companyLogo || DEFAULT_COMPANY_LOGO}
         alt="Logo da empresa"
-        className="w-[38px] h-[38px] object-contain"
+        className="w-[38px] h-[38px] object-contain mix-blend-multiply"
         onError={onLogoError}
       />
       <div>
@@ -298,7 +298,7 @@ export function Sidebar() {
                   <img
                     src={companyLogo || DEFAULT_COMPANY_LOGO}
                     alt="Logo da empresa"
-                    className="w-6 h-6 object-contain"
+                    className="w-6 h-6 object-contain mix-blend-multiply"
                     onError={() => setCompanyLogo(DEFAULT_COMPANY_LOGO)}
                   />
                   <span className="font-bold text-slate-800">{companyName}</span>
