@@ -12,6 +12,11 @@ export const metadata: Metadata = {
   title: 'Jomaga SafeWork',
   description: 'Sistema de gestão de segurança industrial',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/icon-192.png',
+    apple: '/icon-192.png',
+    shortcut: '/icon-192.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -28,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={`${manrope.variable}`}>
       <head>
         <meta name="theme-color" content="#1A237E" />
+        <link rel="icon" href="/icon-192.png" sizes="192x192" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>

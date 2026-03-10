@@ -66,13 +66,21 @@ interface CompanyBranding {
   companyLogo: string;
 }
 
+const DEFAULT_COMPANY_LOGO = '/icon-192.png';
+
+function normalizeLogoUrl(value?: string) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw || raw === '/icon') return DEFAULT_COMPANY_LOGO;
+  return raw;
+}
+
 export default function RelatoriosPage() {
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
   const [companyBranding, setCompanyBranding] = useState<CompanyBranding>({
     companyName: 'SafeWork',
-    companyLogo: '/icon',
+    companyLogo: DEFAULT_COMPANY_LOGO,
   });
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [epiData, setEpiData] = useState<EpiStatus[]>([]);
@@ -100,17 +108,17 @@ export default function RelatoriosPage() {
       try {
         const saved = localStorage.getItem('jomaga_company_settings');
         if (!saved) {
-          setCompanyBranding({ companyName: 'SafeWork', companyLogo: '/icon' });
+          setCompanyBranding({ companyName: 'SafeWork', companyLogo: DEFAULT_COMPANY_LOGO });
           return;
         }
 
         const parsed = JSON.parse(saved);
         setCompanyBranding({
           companyName: parsed?.companyName || 'SafeWork',
-          companyLogo: parsed?.companyLogo || '/icon',
+          companyLogo: normalizeLogoUrl(parsed?.companyLogo),
         });
       } catch {
-        setCompanyBranding({ companyName: 'SafeWork', companyLogo: '/icon' });
+        setCompanyBranding({ companyName: 'SafeWork', companyLogo: DEFAULT_COMPANY_LOGO });
       }
     };
 

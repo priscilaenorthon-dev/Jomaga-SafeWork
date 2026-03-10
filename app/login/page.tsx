@@ -8,10 +8,11 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 const ADMIN_EMAIL = 'admin@jomaga.com.br';
+const DEFAULT_COMPANY_LOGO = '/icon-192.png';
 
 function normalizeLogoUrl(value?: string) {
   const raw = typeof value === 'string' ? value.trim() : '';
-  if (!raw) return '/icon';
+  if (!raw || raw === '/icon') return DEFAULT_COMPANY_LOGO;
 
   if (
     raw.startsWith('/') ||
@@ -23,7 +24,7 @@ function normalizeLogoUrl(value?: string) {
     return raw;
   }
 
-  return '/icon';
+  return DEFAULT_COMPANY_LOGO;
 }
 
 export default function LoginPage() {
@@ -34,7 +35,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [companyName, setCompanyName] = useState('SafeWork');
-  const [companyLogo, setCompanyLogo] = useState('/icon');
+  const [companyLogo, setCompanyLogo] = useState(DEFAULT_COMPANY_LOGO);
 
   useEffect(() => {
     const loadCompanyName = () => {
@@ -42,7 +43,7 @@ export default function LoginPage() {
         const saved = localStorage.getItem('jomaga_company_settings');
         if (!saved) {
           setCompanyName('SafeWork');
-          setCompanyLogo('/icon');
+          setCompanyLogo(DEFAULT_COMPANY_LOGO);
           return;
         }
 
@@ -53,7 +54,7 @@ export default function LoginPage() {
         setCompanyLogo(configuredLogo);
       } catch {
         setCompanyName('SafeWork');
-        setCompanyLogo('/icon');
+        setCompanyLogo(DEFAULT_COMPANY_LOGO);
       }
     };
 
@@ -124,8 +125,8 @@ export default function LoginPage() {
                 className="w-14 h-14 object-contain"
                 onError={(event) => {
                   const target = event.currentTarget;
-                  if (target.src.endsWith('/icon')) return;
-                  setCompanyLogo('/icon');
+                  if (target.src.includes(DEFAULT_COMPANY_LOGO)) return;
+                  setCompanyLogo(DEFAULT_COMPANY_LOGO);
                 }}
               />
             </div>

@@ -9,6 +9,13 @@ import { cn } from '@/lib/utils';
 import { getOfflineQueueCount, OFFLINE_QUEUE_EVENT, setupOfflineQueueSync } from '@/lib/offline-queue';
 
 const PUBLIC_ROUTES = ['/login', '/auth', '/assinatura'];
+const DEFAULT_COMPANY_LOGO = '/icon-192.png';
+
+function normalizeLogoUrl(value?: string | null) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw || raw === '/icon') return DEFAULT_COMPANY_LOGO;
+  return raw;
+}
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -33,7 +40,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         const merged = {
           companyName: data.company_name || 'SafeWork',
-          companyLogo: data.logo_url || '/icon',
+          companyLogo: normalizeLogoUrl(data.logo_url),
           cnpj: data.cnpj || '',
         };
 

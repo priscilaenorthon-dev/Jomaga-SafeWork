@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase-client';
 import { executeMutationWithOfflineQueue } from '@/lib/offline-queue';
 
 type SettingType = 'perfil' | 'notificacoes' | 'seguranca' | 'idioma' | 'empresa' | null;
+const DEFAULT_COMPANY_LOGO = '/icon-192.png';
 
 type UserGender = 'male' | 'female';
 
@@ -56,9 +57,15 @@ const defaultNotificationSettings: NotificationSettings = {
 
 const defaultCompanySettings: CompanySettings = {
   companyName: 'Jomaga',
-  companyLogo: '/icon',
+  companyLogo: DEFAULT_COMPANY_LOGO,
   cnpj: '',
 };
+
+function normalizeLogoUrl(value?: string) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw || raw === '/icon') return DEFAULT_COMPANY_LOGO;
+  return raw;
+}
 
 function normalizeUserProfile(value: any): LocalUserProfile {
   const rawName = typeof value?.name === 'string' ? value.name.trim() : '';
@@ -124,7 +131,7 @@ export default function ConfiguracoesPage() {
 
         const merged = {
           companyName: data.company_name || defaultCompanySettings.companyName,
-          companyLogo: data.logo_url || defaultCompanySettings.companyLogo,
+          companyLogo: normalizeLogoUrl(data.logo_url || defaultCompanySettings.companyLogo),
           cnpj: data.cnpj || defaultCompanySettings.cnpj,
         };
 
@@ -317,6 +324,7 @@ export default function ConfiguracoesPage() {
                           src={companySettings.companyLogo || '/icon'}
                           alt="Logo da empresa"
                           className="w-14 h-14 rounded-lg object-contain"
+                          onError={() => setCompanySettings(prev => ({ ...prev, companyLogo: DEFAULT_COMPANY_LOGO }))}
                         />
                         <div className="flex-1 space-y-2">
                           <input
@@ -339,7 +347,7 @@ export default function ConfiguracoesPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => setCompanySettings({ ...companySettings, companyLogo: '/icon' })}
+                              onClick={() => setCompanySettings({ ...companySettings, companyLogo: DEFAULT_COMPANY_LOGO })}
                               className="px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-100 transition-all flex items-center gap-1.5"
                             >
                               <RotateCcw size={14} />

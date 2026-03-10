@@ -65,9 +65,11 @@ const moreSheetItems = [
   { icon: HelpCircle, label: 'Suporte', href: '/suporte' },
 ];
 
+const DEFAULT_COMPANY_LOGO = '/icon-192.png';
+
 function normalizeLogoUrl(value?: string) {
   const raw = typeof value === 'string' ? value.trim() : '';
-  if (!raw) return '/icon';
+  if (!raw || raw === '/icon') return DEFAULT_COMPANY_LOGO;
 
   if (
     raw.startsWith('/') ||
@@ -79,7 +81,7 @@ function normalizeLogoUrl(value?: string) {
     return raw;
   }
 
-  return '/icon';
+  return DEFAULT_COMPANY_LOGO;
 }
 
 function DesktopMenuItem({ item, pathname }: { item: typeof menuItems[0]; pathname: string }) {
@@ -135,7 +137,7 @@ const DesktopSidebarContent = ({ pathname, companyName, companyLogo, onLogoError
   <div className="flex flex-col h-full bg-[#1A237E] text-white">
     <div className="p-6 flex items-center gap-3">
       <img
-        src={companyLogo || '/icon'}
+        src={companyLogo || DEFAULT_COMPANY_LOGO}
         alt="Logo da empresa"
         className="w-[38px] h-[38px] object-contain"
         onError={onLogoError}
@@ -174,7 +176,7 @@ export function Sidebar() {
   const supabase = createClient();
   const [showMore, setShowMore] = useState(false);
   const [companyName, setCompanyName] = useState('Jomaga');
-  const [companyLogo, setCompanyLogo] = useState('/icon');
+  const [companyLogo, setCompanyLogo] = useState(DEFAULT_COMPANY_LOGO);
 
   useEffect(() => {
     const loadCompanyName = () => {
@@ -209,7 +211,7 @@ export function Sidebar() {
           pathname={pathname}
           companyName={companyName}
           companyLogo={companyLogo}
-          onLogoError={() => setCompanyLogo('/icon')}
+          onLogoError={() => setCompanyLogo(DEFAULT_COMPANY_LOGO)}
         />
       </aside>
 
@@ -294,9 +296,10 @@ export function Sidebar() {
               <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <img
-                    src={companyLogo || '/icon'}
+                    src={companyLogo || DEFAULT_COMPANY_LOGO}
                     alt="Logo da empresa"
                     className="w-6 h-6 object-contain"
+                    onError={() => setCompanyLogo(DEFAULT_COMPANY_LOGO)}
                   />
                   <span className="font-bold text-slate-800">{companyName}</span>
                 </div>
